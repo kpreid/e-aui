@@ -1,0 +1,66 @@
+# originally from Den, stripped down
+
+pragma.enable("explicit-result-guard")
+pragma.disable("easy-return")
+
+pragma.enable("anon-lambda")
+pragma.enable("verb-curry")
+
+def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
+                       ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
+def <awt>                    := <import:java.awt.*>
+def <swing>                  := <import:javax.swing.*>
+def action                   := <aui:swing.action>
+
+def borderFactory := <swing:makeBorderFactory>
+def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
+def setupComponentReactor    := <aui:swing.setupComponentReactor>
+def toKey                    := <elib:tables.makeTraversalKey>
+def makeJLabel               := <swing:makeJLabel>
+
+def markerIcon := <swing:makeImageIcon>(<resource:org/cubik/cle/aui/swing/slot-target.gif>)
+
+def makeObjectSelectorAuthor(one, zero, awtDropTarget) :any {
+  def makeObjectSelector(zoSlot, context) :any {
+    
+    def hole := JPanel``
+        
+    def updateSel(_) :void {
+      def current := zoSlot.getValue()
+      hole.removeAll()
+      if (current.__respondsTo("getValue", 0)) { # XXX should use One guard
+        def object := current.getValue()
+        hole."add(Component)"(context.subPresent(object, true))
+      }
+      hole.revalidate()
+      hole.repaint(hole.getVisibleRect()) # *sigh*, why is this necessary?
+    }
+    
+    setupComponentReactor(hole, zoSlot, updateSel, null)
+      
+    # XXX TODO: rejecting wrong object types dropped
+    
+    def prepDrop(textPane, reactor) :void {
+      # code copied and modified from esrc/caplets/capEdit/capEdit.caplet
+      def makeDataFlavor := <import:java.awt.datatransfer.makeDataFlavor>
+      def setupDrop := <import:com.skyhunter.e.awt.dnd.setupDropFuncAuthor> (
+          awtDropTarget, fn _ {})
+      setupDrop(textPane, [
+          makeDataFlavor(makeDataFlavor.getJavaJVMLocalObjectMimeType() +
+                         "; class=java.awt.dnd.DropTargetEvent") =>
+            reactor])
+    }
+  
+    def marker := makeJLabel("")
+    marker.setIcon(markerIcon)
+
+    def outer := 
+      JPanel`$hole.X.Y $marker
+             V         ${JPanel``}`
+  
+    prepDrop(outer, fn obj { zoSlot.setValue(one(obj)) })
+    #outer.setBorder(borderFactory.createLineBorder(<awt:Color>.getRed()))
+    outer.setBorder(borderFactory.createLoweredBevelBorder())
+    outer
+  }
+}

@@ -1,0 +1,26 @@
+# originally from Den; the version there catches exceptions and presents them in a dialog.
+
+pragma.enable("explicit-result-guard")
+pragma.disable("easy-return")
+
+pragma.enable("easy-when")
+
+def attachContextMenu {
+  to run(component, menuThunk) :void {
+    component.addMouseListener(def mouseListener {
+      match [_, [e]] {
+        if (e.__respondsTo("isPopupTrigger", 0) && e.isPopupTrigger()) {
+          try {
+            # XXX the offsets are a Macintosh UI convention so that the menu appears with no items under the cursor. this should probably be conditional.
+            when (menuThunk()) -> _(menu) :void {
+              menu.show(component, e.getX() + 2, e.getY() - 2)
+            }
+          } catch problem {
+            throw <- (problem) # reach tracelog
+          }
+        }
+        null
+      }
+    })
+  }
+}

@@ -1,0 +1,34 @@
+# originally from Den; the version there catches exceptions and presents them in a dialog.
+
+pragma.enable("explicit-result-guard")
+pragma.disable("easy-return")
+
+def action {
+  to run(component, code) :void {
+    component.addActionListener(def actionListener {
+      to actionPerformed(event) :void {
+        try {
+          code()
+        } catch problem {
+          throw <- (problem) # reach tracelog
+        }
+      }
+    })
+  }
+}
+
+? interp.waitAtTop(currentVat.morphInto("awt"))
+? def action := <import:org.cubik.den.util.action>
+# value: <action>
+
+? def button := <swing:JButton>("Foo"); null
+
+#? def a := action(button, thunk{ println("Foo") })
+## value: <actionListener>
+
+#? a.actionPerformed(null)
+## stdout: Foo
+##         
+
+?# fixme: reenable the above and figure out some way to test the showExceptionDialog
+

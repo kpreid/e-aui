@@ -1,0 +1,44 @@
+# originally from Den, stripped down
+
+pragma.enable("explicit-result-guard")
+pragma.disable("easy-return")
+
+def EverReactor              := <type:org.erights.e.elib.slot.EverReactor>
+
+def setupComponentReactor {
+  /** Setup an EverReactor which calls <var>updateFunc</var> upon an update from <var>reporter</var>, and registers interest if <var>component</var> is onscreen.
+    * <p>
+    * Currently <strong>does not work properly</strong>, in that the reactor will always reregister after each update. See comments in the source code for why.
+    * <p>
+    * <var>optDetachedFunc</var> is called if the reporter returns a nil <var>optNewReporter</var>.
+    */
+  to run(component, reporter, updateFunc, optDetachedFunc) :void {
+
+    reporter <- whenUpdated(def componentReactor implements EverReactor {
+      /** see EverReactor */
+      to reactToUpdate(newValue, newReporterGen, optNewReporter) :void {
+        # FIXME: should reregister only if interested, but we need a way to determine interest. Right now none of the below ways are possible:
+        # (a) weak ref to the component:
+        #       register with the reporter if the component hasn't been collected
+        # (b) means of telling when the component becomes visible onscreen:
+        #       register when the component becomes visible, and upon reacting if it's visible
+        # (c) means of telling when the component is repainted, assuming this won't happen if the component isn't now-visible or potentially visible:
+        #       register when the component is repainted
+        if (optNewReporter != null) {
+          optNewReporter <- whenUpdated(componentReactor, newReporterGen)
+        }
+        
+        updateFunc(newValue)
+
+        if (optNewReporter == null && optDetachedFunc != null) {
+          optDetachedFunc()
+        }
+      }
+    })
+  }
+}
+
+? def setupComponentReactor := <import:org.cubik.den.util.swing.setupComponentReactor>
+# value: <setupComponentReactor>
+
+?# fixme: more updoc

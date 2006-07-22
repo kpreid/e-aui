@@ -1,0 +1,59 @@
+# Copyright 2003-2004 Kevin Reid.
+# This source code and related files are distributed under the MIT License, as described in the document named "License.txt" which should be provided with this source distribution.
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+def makeGridBagTable() :any {
+  def tableContainer := <import:javax.swing.JPanel>(
+    def tableLayout := <import:java.awt.GridBagLayout>()
+  )
+  
+  var rowComponents := [].asMap()
+  
+  def gridBagTable {
+    to getComponent() :any { return tableContainer }
+
+    to getRowKeys() :any { return rowComponents.getKeys() }
+
+    to addRow(rowKey, components :List) :void {
+      rowComponents with= (rowKey, components)
+
+      tableContainer.revalidate()
+      tableContainer.repaint(tableContainer.getVisibleRect())
+    }
+    
+    to addOrMoveRow(rowKey, y, maker) :void {
+      if (rowComponents.maps(rowKey)) {
+      } else {
+        gridBagTable.addRow(rowKey, maker())
+      }
+      gridBagTable.moveRow(rowKey, y)
+    }
+    
+    to removeRow(rowKey) :void {
+      for component in rowComponents[rowKey] {
+        tableContainer.remove(component)
+      }
+      rowComponents without= rowKey
+
+      tableContainer.revalidate()
+      tableContainer.repaint(tableContainer.getVisibleRect())
+    }
+    
+    to moveRow(rowKey, y) :void {
+      for component in rowComponents[rowKey] {
+        def gbc := tableLayout.getConstraints(component) # is a copy
+        gbc.setGridy(y)
+        tableLayout.setConstraints(component, gbc)
+      }
+    }
+  }
+  
+  return gridBagTable
+}
+
+? def makeGridBagTable := <import:org.cubik.den.util.makeGridBagTable>
+# value: <makeGridBagTable>
+
+?# fixme: more updoc
