@@ -644,6 +644,46 @@ openSwingFrame("File Browser", rootContext.subPresentType(exampleFile, presentDi
 
 # ------------------------------------------------------------------------------
 
+# REPL
+
+def seqEval := { 
+  var env := privilegedScope
+  def seqEval(expr) {
+    def [v, e] := expr.evalToPair(env)
+    env := e
+    return v
+  }
+}
+
+def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
+
+def presentSeqEval(seqEval, context) {
+  def box := enbox.y(def filler := JPanel``)
+  filler.setPreferredSize(<awt:Dimension>(320,320))
+  def read() {
+    box."add(Component)"(def field := makeJTextField())
+    field.addKeyListener(def enterKeyListener {
+      to keyPressed(e) :void { try {
+        if (e.getKeyCode() == VK_ENTER) {
+          def expr := e__quasiParser(field.getText())
+          box.remove(field)
+          box.add(JPanel`${makeJLabel("? ")} ${context.subPresent(expr, false)} ${JPanel``}`)
+          box.add(context.subPresent(seqEval <- (expr), true))
+          box.revalidate()
+          read <- ()
+        }
+      } catch p { throw <- (p) } }
+      match _ {}
+    })
+  }
+  read()
+  return box
+}
+
+openSwingFrame("Repl", rootContext.subPresentType(seqEval, presentSeqEval, false), null) 
+
+# ------------------------------------------------------------------------------
+
 #def cmd := makeFlexArgMessageCommand(def x := <elib:tables.makeFlexMap>, x.__getAllegedType().getMessageTypes()["fromTypes/2"], [makeLamportSlot(one(<type:java.lang.Object>)), makeLamportSlot(one(<type:java.lang.Object>))])
 
 def exampleButtonCommand := makeArglessMessageCommand(def tk := <awt:Toolkit>.getDefaultToolkit(), tk.__getAllegedType().getMessageTypes()["beep/0"])
@@ -661,4 +701,5 @@ def example := [
   => safeScope,
 ]
 
-openSwingFrame("Toy", makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, [].asMap()).subPresent(example, true), null) 
+# disabled for now as the REPL incorporates this mostly
+# openSwingFrame("Toy", makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, [].asMap()).subPresent(example, true), null) 
