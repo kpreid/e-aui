@@ -134,8 +134,11 @@ def action := <aui:swing.action>
 def attachContextMenu := <aui:swing.attachContextMenu>
 def makeGridBagTable := <aui:swing.makeGridBagTable>
 
-def presentInSwing
 def makeObjectSelector := <aui:swing.makeObjectSelectorAuthor>(one, zero, awtDropTarget)
+
+def presentInSwing
+def presentInSwingIcon
+def makeIconContext
 
 def rootContext
 
@@ -170,8 +173,6 @@ def enbox {
     box
   }
 }
-
-def genericIcon := <swing:makeImageIcon>(<resource:org/cubik/cle/aui/swing/item.gif>)
 
 # ------------------------------------------------------------------------------
 
@@ -225,7 +226,7 @@ def textLimit := 60
 def presentGenericInSwing(object, context) {
   def quoted := context.quoting()
 
-  def label := makePLabel("", genericIcon, context, object, thunk {thunk {[null,null]}})
+  def label := makePLabel("", presentInSwingIcon(object, makeIconContext(context)), context, object, thunk {thunk {[null,null]}})
 
   def update() {
     def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
@@ -489,6 +490,29 @@ bind rootContext := makePresentationContext(makeSwingBoundary, presentInSwing, [
 
 # ------------------------------------------------------------------------------
 
+# Icons
+
+def genericIcon := <swing:makeImageIcon>(<resource:org/cubik/cle/aui/swing/item.gif>)
+def fileIcon := <swing:makeImageIcon>(<resource:com/skyhunter/capDesk/icons/noLauncher.gif>)
+def dirIcon := <swing:makeImageIcon>(<resource:com/skyhunter/capDesk/icons/folder.gif>)
+
+def File := <type:java.io.File>
+
+bind makeIconContext(context) {
+  return context
+}
+
+bind presentInSwingIcon(object, context) {
+  return switch (object) {
+    match f :File {
+      f.isDirectory().pick(dirIcon, fileIcon)
+    }
+    match _ { genericIcon }
+  }
+}
+
+# ------------------------------------------------------------------------------
+
 def parse := e__quasiParser
 
 def presentCaplet(capletFile) {
@@ -605,14 +629,11 @@ def presentCaplet(capletFile) {
 
 # File-browser application example
 
-def fileIcon := <swing:makeImageIcon>(<resource:com/skyhunter/capDesk/icons/noLauncher.gif>)
-def dirIcon := <swing:makeImageIcon>(<resource:com/skyhunter/capDesk/icons/folder.gif>)
-
 def makeOpenCommand
 
 def presentDirEntry(name) {
   return def present(file, context) {
-    return makePLabel(name, file.isDirectory().pick(dirIcon, fileIcon), context, file, thunk { makeOpenCommand(file) })
+    return makePLabel(name, presentInSwingIcon(file, makeIconContext(context)), context, file, thunk { makeOpenCommand(file) })
   }
 }
 
