@@ -182,6 +182,7 @@ def runToWindow
 
 def addStandardEventHandlers(component, object, context) {
   dragDropKit.setupLocalDragSource(component, thunk { object })
+  context <- getHooks() <- get("addListeners") <- (component) # XXX this should not be deferred, but we have a cyclic dependency
 
   attachContextMenu(component, thunk {
     def m := <swing:JPopupMenu>()
@@ -454,7 +455,7 @@ bind presentAMCommandAsSwingMenuItem(command :CompleteCommand, context, selected
 
 
 
-
+def normalBorder := borderFactory.createEmptyBorder(2, 2, 2, 2)
 def boundaryBorder := borderFactory.createRaisedBevelBorder()
 def activeBorder := borderFactory.createBevelBorder(
   <swing:border.BevelBorder>.getRAISED(),
@@ -466,24 +467,46 @@ def makeSwingBoundary(object, context, content) {
 
   addStandardEventHandlers(container, object, context)
 
-  def normalBorder := if (context.quoting()) {
-    boundaryBorder
-  } else {
-    borderFactory.createEmptyBorder()
-  }
-  container.setBorder(normalBorder)
 
-  def borderControlListener {
+  var mouseover := [].asSet()
+  var active := false
+
+  def updateBorder() {
+    container.setBorder(
+      if (active) { activeBorder } else if (mouseover.size() > 0) { boundaryBorder } else { normalBorder } )
+  }
+  updateBorder()
+
+  
+  
+  def addListeners(c) {
+    c.addMouseListener(def mouseOverUpdateListener {
+    to mouseEntered(event) :void { try {
+      mouseover with= mouseOverUpdateListener
+      updateBorder()
+    } catch p { throw <- (p) } }
+    to mouseExited(event) :void { try {
+      mouseover without= mouseOverUpdateListener
+      updateBorder()
+    } catch p { throw <- (p) } }
+    match _ {}
+  })
+  }
+  addListeners(container)
+
+  def borderControlListener { # XXX this needs renaming now
     to popupMenuWillBecomeInvisible(e) { try { 
-      container.setBorder(normalBorder)
+      active := false
+      updateBorder()
     } catch p { throw <- (p) } }
     to popupMenuWillBecomeVisible(e) { try {
-        container.setBorder(activeBorder)
+      active := true
+      updateBorder()
     } catch p { throw <- (p) } }
     match msg {}
   }
 
-  return [container, [=> borderControlListener]]
+  return [container, [=> borderControlListener, => addListeners]]
 }
 
 bind rootContext := makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, Ref.broken("no hooks"))
