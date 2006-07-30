@@ -9,11 +9,24 @@ def <aui> := <import>[meta.context().getFQNPrefix().split("$")[0] + ".*"]
 
 interface Zero guards ZeroStamp {}
 def One := <type:org.erights.e.elib.slot.FinalSlot>
+def one(value) { return &value }
 interface Many guards ManyStamp {}
-def ZOM := any[Zero, One, Many]
+def ZOM extends any[Zero, One, Many] {
+  to get(valueType) {
+    return def ZOM1 {
+      to coerce(sp, ej) {
+        def zom := super.coerce(sp)
+        if (sp == Zero || sp == Many) {
+          return sp
+        } else {
+          return one(valueType.coerce(sp.getValue(), ej))
+        }
+      }
+    }
+  }
+}
 def ZO := any[Zero, One]
 def zero implements ZeroStamp {}
-def one(value) { return &value }
 def many implements ManyStamp {}
 
 def makeLamportSlot := <import:org.erights.e.elib.slot.makeLamportSlot>
