@@ -38,8 +38,6 @@ def makeObjectSelectorAuthor(one, zero, awtDropTarget) :any {
     
     setupComponentReactor(hole, zoSlot, updateSel, null)
       
-    # XXX TODO: rejecting wrong object types dropped
-    
     def prepDrop(textPane, reactor) :void {
       # code copied and modified from esrc/caplets/capEdit/capEdit.caplet
       def makeDataFlavor := <import:java.awt.datatransfer.makeDataFlavor>
@@ -58,7 +56,11 @@ def makeObjectSelectorAuthor(one, zero, awtDropTarget) :any {
       JPanel`$hole.X.Y $marker
              V         ${JPanel``}`
   
-    prepDrop(outer, fn obj { zoSlot.setValue(one(obj)) })
+    prepDrop(outer, fn obj {
+      # XXX need a better way to cancel the drag than letting it try to assign and throwing
+      zoSlot.setValue(one(obj)) 
+      null
+    })
     #outer.setBorder(borderFactory.createLineBorder(<awt:Color>.getRed()))
     outer.setBorder(borderFactory.createLoweredBevelBorder())
     outer

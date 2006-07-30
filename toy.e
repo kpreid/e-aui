@@ -32,6 +32,22 @@ def many implements ManyStamp {}
 def makeLamportSlot := <import:org.erights.e.elib.slot.makeLamportSlot>
 def toKey                    := <elib:tables.makeTraversalKey>
 def FinalSlot := <type:org.erights.e.elib.slot.FinalSlot>
+def Slot := <type:org.erights.e.elib.slot.Slot>
+def EverReporter := <type:org.erights.e.elib.slot.EverReporter>
+def makeStoneCast := <import:org.erights.e.facet.makeStoneCast>
+
+interface TypedReporterSlot extends EverReporter {
+  # XXX is it appropriate to duplicate the extends' method info here?
+  to valueType() :ValueGuard
+}
+
+/** make something like a LamportSlot except that it publishes a guard and does not allow itself to be subscribed to a reporter. will not coerce values arriving from upstream. */
+def makeTypedReporterSlot(slot, Value) {
+  return def typedReporterSlot extends makeStoneCast(slot, EverReporter) {
+    to setValue(new) { slot.setValue(Value.coerce(new, null)) }
+    to valueType() { return Value }
+  }
+}
 
 def CompleteCommand
 interface Command {
@@ -48,8 +64,10 @@ interface bind CompleteCommand extends Command {
 
 def CommandMessageDesc := <type:org.erights.e.elib.base.MessageDesc> # XXX should be just DeepFrozen and an interface
 
-def makeZeroSlots(n) { 
-  return accum [] for _ in (0..!n) { _.with(makeLamportSlot(zero)) } 
+def makeZeroSlots(params) { 
+  return accum [] for pd in params { 
+    _.with(makeTypedReporterSlot(makeLamportSlot(zero), ZOM[if (pd.getOptGuard() != null) { pd.getOptGuard() } else { any }]))
+  }
 }
 
 interface SimpleMessageCommand guards SimpleMessageCommandStamp {}
@@ -85,7 +103,7 @@ def makeFlexArgMessageCommand {
     }
   }
   to empty(r, d :CommandMessageDesc) {
-    return makeFlexArgMessageCommand(r, d, makeZeroSlots(d.getParams().size()))
+    return makeFlexArgMessageCommand(r, d, makeZeroSlots(d.getParams()))
   }
 }
 
