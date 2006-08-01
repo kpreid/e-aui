@@ -173,27 +173,6 @@ def makeIconContext
 
 def rootContext
 
-def openSwingFrame(title, component, optRel) {
-  def frame := <swing:makeJFrame>(title)
-
-  def sp := <swing:JScrollPane>()
-    #sp.setPreferredSize(<awt:Dimension>(320,320))
-    #sp.setVerticalScrollBarPolicy(<swing:ScrollPaneConstants>.getVERTICAL_SCROLLBAR_ALWAYS())
-  sp.getViewport()."add(Component)"(component)
-
-  frame.setContentPane(sp)
-  frame.pack()
-  if (optRel != null) { 
-    frame.setLocationRelativeTo(optRel)
-  } else {
-    if (frame.__respondsTo("setLocationByPlatform", 1)) {
-      frame.setLocationByPlatform(true)
-    }
-  }
-  frame.show()
-  return frame
-}
-
 def enbox {
   #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
   match [dn ? (["x" => 0, "y" => 1] =~ [(dn) => dir]|_), components] {
@@ -262,6 +241,27 @@ def makeSwingBackend() {
 
   return def backend {
     to getPresentKit() { return presentKit }
+    /** XXX decide whether "Frame" name is to stay */
+    to openFrame(title, component, optRel) {
+      def frame := <swing:makeJFrame>(title)
+    
+      def sp := <swing:JScrollPane>()
+        #sp.setPreferredSize(<awt:Dimension>(320,320))
+        #sp.setVerticalScrollBarPolicy(<swing:ScrollPaneConstants>.getVERTICAL_SCROLLBAR_ALWAYS())
+      sp.getViewport()."add(Component)"(component)
+    
+      frame.setContentPane(sp)
+      frame.pack()
+      if (optRel != null) { 
+        frame.setLocationRelativeTo(optRel)
+      } else {
+        if (frame.__respondsTo("setLocationByPlatform", 1)) {
+          frame.setLocationByPlatform(true)
+        }
+      }
+      frame.show()
+      return frame
+    }
   }
 }
 def backend := makeSwingBackend()
@@ -462,7 +462,7 @@ bind presentInSwing(object, context) {
 bind runToWindow(title, command, originC) {
   def context := rootContext
   def [result, optPresenter] := command.run()
-  openSwingFrame(title, 
+  backend.openFrame(title, 
                  if (optPresenter != null) \
                    {context.subPresentType(result, optPresenter, true)} else \
                    {context.subPresent(result, true)}, 
@@ -670,7 +670,7 @@ def presentCaplet(capletFile) {
         `
 
         def context := rootContext
-        def frame := openSwingFrame(`CapDesk - $capletName requests ${editable.pick("editable", "read-only")} file: $title`,
+        def frame := backend.openFrame(`CapDesk - $capletName requests ${editable.pick("editable", "read-only")} file: $title`,
                                     ui,
                                     container)
         
@@ -728,7 +728,7 @@ bind makeOpenCommand(file) {
 
 def exampleFile := <file:/Stuff>
 
-openSwingFrame("File Browser", rootContext.subPresentType(exampleFile, presentDirectory, true), null) 
+backend.openFrame("File Browser", rootContext.subPresentType(exampleFile, presentDirectory, true), null) 
 
 # ------------------------------------------------------------------------------
 
@@ -768,7 +768,7 @@ def presentSeqEval(seqEval, context) {
   return box
 }
 
-openSwingFrame("Repl", rootContext.subPresentType(seqEval, presentSeqEval, false), null) 
+backend.openFrame("Repl", rootContext.subPresentType(seqEval, presentSeqEval, false), null) 
 
 # ------------------------------------------------------------------------------
 
@@ -784,10 +784,10 @@ def example := [
   => Zero, => One, => Many, 
   => zero, => one, => many, 
   => ZOM, => ZO, 
-  => openSwingFrame, 
+  => backend, 
   => privilegedScope, 
   => safeScope,
 ]
 
 # disabled for now as the REPL incorporates this mostly
-# openSwingFrame("Toy", makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, [].asMap()).subPresent(example, true), null) 
+# backend.openFrame("Toy", makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, [].asMap()).subPresent(example, true), null) 
