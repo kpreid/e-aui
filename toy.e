@@ -205,6 +205,16 @@ def enbox {
   }
 }
 
+def makeSwingBackend() {
+  def presentKit {
+  }
+
+  return def backend {
+    to getPresentKit() { return presentKit }
+  }
+}
+def backend := makeSwingBackend()
+
 # ------------------------------------------------------------------------------
 
 def presentFAMCommandInSwing
