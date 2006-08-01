@@ -207,6 +207,11 @@ def enbox {
 
 def makeSwingBackend() {
   def presentKit {
+    to button(name :String, actionThunk) {
+      def button := <swing:makeJButton>(name)
+      action(button, actionThunk)
+      return button
+    }
   }
 
   return def backend {
@@ -297,12 +302,11 @@ def presentGenericInSwing(object, context) {
 }
 
 def presentCompleteCommandInSwing(command, context) {
-  def runButton := <swing:makeJButton>("Run")
   def hole := JPanel``
   hole.setLayout(<awt:FlowLayout>())
   #hole.setPreferredSize(<awt:Dimension>(320, 100))
 
-  action(runButton, thunk {
+  def runButton := backend.getPresentKit().button("Run", thunk {
     #hole.setPreferredSize(null)
     hole."add(Component)"(context.subPresent(command.run(), true))
     hole.revalidate()
@@ -315,12 +319,11 @@ def presentCompleteCommandInSwing(command, context) {
 }
 
 def makeCommandUI(command :Command, editUI, context) {
-  def runButton := <swing:makeJButton>("Run")
   def hole := JPanel``
   hole.setLayout(<awt:FlowLayout>())
   hole.setPreferredSize(<awt:Dimension>(320, 100))
 
-  action(runButton, thunk {
+  def runButton := backend.getPresentKit().button("Run", thunk {
     hole.setPreferredSize(null)
     hole."add(Component)"(context.subPresent(command.run(), true))
     hole.revalidate()
