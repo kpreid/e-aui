@@ -205,23 +205,6 @@ def enbox {
   }
 }
 
-def makeSwingBackend() {
-  def presentKit {
-    to button(name :String, actionThunk) {
-      def button := <swing:makeJButton>(name)
-      action(button, actionThunk)
-      return button
-    }
-  }
-
-  return def backend {
-    to getPresentKit() { return presentKit }
-  }
-}
-def backend := makeSwingBackend()
-
-# ------------------------------------------------------------------------------
-
 def presentFAMCommandInSwing
 def presentAMCommandAsSwingMenuItem
 def runToWindow
@@ -249,31 +232,48 @@ def addStandardEventHandlers(component, object, context) {
   })
 }
 
-def makePLabel(name :String, icon, context, object, getDoubleClickCommand) {
-  # XXX object arg shouldn't be present; instead the context should be asked to install these things
-  def label := makeJLabel(name, icon, swingConstants.getLEADING())
-  
-  addStandardEventHandlers(label, object, context)
-  
-  label.addMouseListener(def doubleClickListener {
-    to mouseReleased(e) { try {
-      if (e.getClickCount() == 2) {
-        def command := getDoubleClickCommand()
-        runToWindow(E.toString(command), command, label)
-      }
-    } catch p { throw <- (p) } }
-    match _ {}
-  })
-  
-  return label
+def makeSwingBackend() {
+  def presentKit {
+    to plabel(name :String, icon, context, object, getDoubleClickCommand) {
+      # XXX object arg shouldn't be present; instead the context should be asked to install these things
+      def label := makeJLabel(name, icon, swingConstants.getLEADING())
+      
+      addStandardEventHandlers(label, object, context)
+      
+      label.addMouseListener(def doubleClickListener {
+        to mouseReleased(e) { try {
+          if (e.getClickCount() == 2) {
+            def command := getDoubleClickCommand()
+            runToWindow(E.toString(command), command, label)
+          }
+        } catch p { throw <- (p) } }
+        match _ {}
+      })
+      
+      return label
+    }
+    
+    to button(name :String, actionThunk) {
+      def button := <swing:makeJButton>(name)
+      action(button, actionThunk)
+      return button
+    }
+  }
+
+  return def backend {
+    to getPresentKit() { return presentKit }
+  }
 }
+def backend := makeSwingBackend()
+
+# ------------------------------------------------------------------------------
 
 def textLimit := 60
 
 def presentGenericInSwing(object, context) {
   def quoted := context.quoting()
 
-  def label := makePLabel("", presentInSwingIcon(object, makeIconContext(context)), context, object, thunk {thunk {[null,null]}})
+  def label := backend.getPresentKit().plabel("", presentInSwingIcon(object, makeIconContext(context)), context, object, thunk {thunk {[null,null]}})
 
   def update() {
     def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
@@ -700,7 +700,7 @@ def makeOpenCommand
 
 def presentDirEntry(name) {
   return def present(file, context) {
-    return makePLabel(name, presentInSwingIcon(file, makeIconContext(context)), context, file, thunk { makeOpenCommand(file) })
+    return backend.getPresentKit().plabel(name, presentInSwingIcon(file, makeIconContext(context)), context, file, thunk { makeOpenCommand(file) })
   }
 }
 
