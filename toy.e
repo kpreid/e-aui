@@ -662,11 +662,12 @@ def presentCaplet(capletFile) {
         def fileSlot := makeLamportSlot(zero)
         
         def fsel := backend.getRootContext().subPresentType(fileSlot, makeObjectSelector, false)
-      
+        
+        def run
         def ui := JPanel`
           ${backend.getPresentKit().text(`Justification: "$justification"`)}
           $fsel >
-          ${JPanel``}.X ${def runButton := <swing:makeJButton>("Run")}
+          ${JPanel``}.X ${backend.getPresentKit().button("Run", run)}
         `
 
         def context := backend.getRootContext()
@@ -674,10 +675,10 @@ def presentCaplet(capletFile) {
                                     ui,
                                     container)
         
-        action(runButton, thunk {
+        bind run() {
           bind files := [fileSlot.getValue().getValue()]
           frame.hide()
-        })
+        }
         
         return files
       }
