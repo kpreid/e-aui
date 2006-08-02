@@ -225,6 +225,10 @@ def makeSwingBackend() {
       return button
     }
 
+    to text(s :String) {
+      return makeJLabel(s)
+    }
+
     #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
     match [dn ? (["x" => 0, "y" => 1] =~ [(dn) => dir]|_), components] {
       def box := <swing:makeBox>(dir)
@@ -400,10 +404,10 @@ bind presentFAMCommandInSwing(command, context) {
     )) 
   }
 
-  def leftLabel := JPanel`${context.subPresent(command.getRecipient(), true)} ${makeJLabel(" <- ")} ${context.subPresent(command.getVerb(), false)} ${makeJLabel("(")}`
+  def leftLabel := JPanel`${context.subPresent(command.getRecipient(), true)} ${backend.getPresentKit().text(" <- ")} ${context.subPresent(command.getVerb(), false)} ${backend.getPresentKit().text("(")}`
 
   return makeCommandUI(command, JPanel`
-    $leftLabel $selsC ${makeJLabel(")")}
+    $leftLabel $selsC ${backend.getPresentKit().text(")")}
   `, context)
 }
 
@@ -415,8 +419,8 @@ def presentMakeFlexMapCommandInSwing(command, context) {
   def vsel := context.subPresentType(vzs, makeObjectSelector, false)
 
   return makeCommandUI(command, JPanel`
-    ${makeJLabel("Key type: ")}   $ksel.X
-    ${makeJLabel("Value type: ")} $vsel.X
+    ${backend.getPresentKit().text("Key type: ")}   $ksel.X
+    ${backend.getPresentKit().text("Value type: ")} $vsel.X
   `, context)
 }
 
@@ -494,7 +498,7 @@ bind presentInSwing(object, context) {
       context.subPresent(x.getValue(), context.quoting()) }
 
     #match x :near ? x.__respondsTo("paintIcon", 4) { # XXX better solution needed -- Java interfaces should respond to something like actuallyDeclared to give a restrictive guard
-    #  makeJLabel(x) }
+    #  backend.getPresentKit().text(x) }
       
     # broken - not all lamports hold ZOMs
     #match ls :near ? (ls.__getAllegedType().getFQName() =~ `org.erights.e.elib.slot.makeLamportSlot$$makeLamportSlot__C$$lamportSlot__@{_}__C`) { 
@@ -660,7 +664,7 @@ def presentCaplet(capletFile) {
         def fsel := backend.getRootContext().subPresentType(fileSlot, makeObjectSelector, false)
       
         def ui := JPanel`
-          ${makeJLabel(`Justification: "$justification"`)}
+          ${backend.getPresentKit().text(`Justification: "$justification"`)}
           $fsel >
           ${JPanel``}.X ${def runButton := <swing:makeJButton>("Run")}
         `
@@ -751,7 +755,7 @@ def presentSeqEval(seqEval, context) {
         if (e.getKeyCode() == VK_ENTER) {
           def expr := e__quasiParser(field.getText())
           box.remove(field)
-          box.add(JPanel`${makeJLabel("? ")} ${context.subPresent(expr, false)} ${JPanel``}`)
+          box.add(JPanel`${backend.getPresentKit().text("? ")} ${context.subPresent(expr, false)} ${JPanel``}`)
           box.add(context.subPresent(seqEval <- (expr), true))
           box.revalidate()
           read <- ()
