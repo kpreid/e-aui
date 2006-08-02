@@ -154,17 +154,6 @@ if (currentVat.getRunnerKind() != "awt") {
   interp.waitAtTop(currentVat.morphInto("awt"))
 }
 
-def makeJLabel := <swing:makeJLabel>
-def makeJTextField := <swing:makeJTextField>
-def borderFactory := <swing:makeBorderFactory>
-def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<awt>, def _(_) {})
-def awtDropTarget := <awt:dnd.makeDropTarget>
-def swingConstants := <swing:makeSwingConstants>
-
-def action := <aui:swing.action>
-def attachContextMenu := <aui:swing.attachContextMenu>
-def makeGridBagTable := <aui:swing.makeGridBagTable>
-
 def presentInSwing
 def presentInSwingIcon
 def makeIconContext
@@ -173,32 +162,39 @@ def presentFAMCommandInSwing
 def presentAMCommandAsSwingMenuItem
 def runToWindow
 
-def addStandardEventHandlers(component, object, context) {
-  dragDropKit.setupLocalDragSource(component, thunk { object })
-  context <- getHooks() <- get("addListeners") <- (component) # XXX this should not be deferred, but we have a cyclic dependency
-
-  attachContextMenu(component, thunk {
-    def m := <swing:JPopupMenu>()
-    
-    when (gatherCommands(object)) -> doCommandMenu(commands) {
-      for command in commands {
-        m."add(Component)"(presentAMCommandAsSwingMenuItem(command, context, object))
-      }
-
-      m.addPopupMenuListener(context.getHooks()["borderControlListener"])
-
-      return m
-    } catch p {
-      <awt:Toolkit>.getDefaultToolkit().beep() # besides the tracelog
-      throw <- (p)
-      return m
-    }
-  })
-}
-
 def makeSwingBackend() {
 
+  def action := <aui:swing.action>
+  def awtDropTarget := <awt:dnd.makeDropTarget>
+  def borderFactory := <swing:makeBorderFactory>
+  def makeJLabel := <swing:makeJLabel>
   def makeObjectSelector := <aui:swing.makeObjectSelectorAuthor>(one, zero, awtDropTarget)
+  def swingConstants := <swing:makeSwingConstants>
+    def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<awt>, def _(_) {})
+  def attachContextMenu := <aui:swing.attachContextMenu>
+  
+  def addStandardEventHandlers(component, object, context) {
+    dragDropKit.setupLocalDragSource(component, thunk { object })
+    context <- getHooks() <- get("addListeners") <- (component) # XXX this should not be deferred, but we have a cyclic dependency
+  
+    attachContextMenu(component, thunk {
+      def m := <swing:JPopupMenu>()
+      
+      when (gatherCommands(object)) -> doCommandMenu(commands) {
+        for command in commands {
+          m."add(Component)"(presentAMCommandAsSwingMenuItem(command, context, object))
+        }
+  
+        m.addPopupMenuListener(context.getHooks()["borderControlListener"])
+  
+        return m
+      } catch p {
+        <awt:Toolkit>.getDefaultToolkit().beep() # besides the tracelog
+        throw <- (p)
+        return m
+      }
+    })
+  }
   
   def presentKit {
     /** XXX what does this name mean? */
@@ -440,6 +436,7 @@ def presentListY(list, context) {
   def box := E.call(backend.getPresentKit(), "y", accum [] for item in list { _.with(context.subPresent(item, context.quoting())) })
   return box
 }
+def makeGridBagTable := <aui:swing.makeGridBagTable>
 def presentMapY(map, context) {
   def table := makeGridBagTable()
   def tableC := table.getComponent()
@@ -593,6 +590,8 @@ bind presentInSwingIcon(object, context) {
 
 def parse := e__quasiParser
 
+def borderFactory := <swing:makeBorderFactory>
+def awtDropTarget := <awt:dnd.makeDropTarget>
 def presentCaplet(capletFile) {
   def capletAuthor := parse(capletFile.getTwine()).eval(safeScope)
   def capletName := E.toString(capletFile)
@@ -757,6 +756,7 @@ def seqEval := {
 
 def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
 
+def makeJTextField := <swing:makeJTextField>
 def presentSeqEval(seqEval, context) {
   def box := backend.getPresentKit().y(def filler := JPanel``)
   filler.setPreferredSize(<awt:Dimension>(320,320))
