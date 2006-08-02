@@ -171,8 +171,6 @@ def presentInSwing
 def presentInSwingIcon
 def makeIconContext
 
-def rootContext
-
 def enbox {
   #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
   match [dn ? (["x" => 0, "y" => 1] =~ [(dn) => dir]|_), components] {
@@ -211,6 +209,8 @@ def addStandardEventHandlers(component, object, context) {
   })
 }
 
+def makeSwingBoundary
+
 def makeSwingBackend() {
   def presentKit {
     to plabel(name :String, icon, context, object, getDoubleClickCommand) {
@@ -239,7 +239,10 @@ def makeSwingBackend() {
     }
   }
 
+  def rootContext := makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, Ref.broken("no hooks"))
+
   return def backend {
+    to getRootContext() { return rootContext }
     to getPresentKit() { return presentKit }
     /** XXX decide whether "Frame" name is to stay */
     to openFrame(title, component, optRel) {
@@ -460,7 +463,7 @@ bind presentInSwing(object, context) {
 }
 
 bind runToWindow(title, command, originC) {
-  def context := rootContext
+  def context := backend.getRootContext()
   def [result, optPresenter] := command.run()
   backend.openFrame(title, 
                  if (optPresenter != null) \
@@ -506,7 +509,7 @@ def activeBorder := borderFactory.createBevelBorder(
   <awt:Color>."run(float, float, float)"(0.7, 0.7, 1.0),
   <awt:Color>."run(float, float, float)"(0.4, 0.4, 0.7))
 
-def makeSwingBoundary(object, context, content) {
+bind makeSwingBoundary(object, context, content) {
   def container := JPanel`$content`
 
   addStandardEventHandlers(container, object, context)
@@ -553,7 +556,6 @@ def makeSwingBoundary(object, context, content) {
   return [container, [=> borderControlListener, => addListeners]]
 }
 
-bind rootContext := makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, Ref.broken("no hooks"))
 
 # ------------------------------------------------------------------------------
 
@@ -661,7 +663,7 @@ def presentCaplet(capletFile) {
         
         def fileSlot := makeLamportSlot(zero)
         
-        def fsel := rootContext.subPresentType(fileSlot, makeObjectSelector, false)
+        def fsel := backend.getRootContext().subPresentType(fileSlot, makeObjectSelector, false)
       
         def ui := JPanel`
           ${makeJLabel(`Justification: "$justification"`)}
@@ -669,7 +671,7 @@ def presentCaplet(capletFile) {
           ${JPanel``}.X ${def runButton := <swing:makeJButton>("Run")}
         `
 
-        def context := rootContext
+        def context := backend.getRootContext()
         def frame := backend.openFrame(`CapDesk - $capletName requests ${editable.pick("editable", "read-only")} file: $title`,
                                     ui,
                                     container)
@@ -728,7 +730,7 @@ bind makeOpenCommand(file) {
 
 def exampleFile := <file:/Stuff>
 
-backend.openFrame("File Browser", rootContext.subPresentType(exampleFile, presentDirectory, true), null) 
+backend.openFrame("File Browser", backend.getRootContext().subPresentType(exampleFile, presentDirectory, true), null) 
 
 # ------------------------------------------------------------------------------
 
@@ -768,7 +770,7 @@ def presentSeqEval(seqEval, context) {
   return box
 }
 
-backend.openFrame("Repl", rootContext.subPresentType(seqEval, presentSeqEval, false), null) 
+backend.openFrame("Repl", backend.getRootContext().subPresentType(seqEval, presentSeqEval, false), null) 
 
 # ------------------------------------------------------------------------------
 
