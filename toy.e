@@ -201,6 +201,7 @@ def makeSwingBackend() {
   def makeObjectSelector := <aui:swing.makeObjectSelectorAuthor>(one, zero, awtDropTarget)
   
   def presentKit {
+    /** XXX what does this name mean? */
     to plabel(name :String, icon, context, object, getDoubleClickCommand) {
       # XXX object arg shouldn't be present; instead the context should be asked to install these things
       def label := makeJLabel(name, icon, swingConstants.getLEADING())
@@ -221,9 +222,16 @@ def makeSwingBackend() {
     }
     
     to button(name :String, actionThunk) {
-      def button := <swing:makeJButton>(name)
-      action(button, actionThunk)
-      return button
+      def component := <swing:makeJButton>(name)
+      action(component, actionThunk)
+      return component
+    }
+
+    /** XXX decide whether this should exist */
+    to _menuItem(name :String, actionThunk) {
+      def component := <swing:makeJMenuItem>(name)
+      action(component, actionThunk)
+      return component
     }
 
     /** XXX this feels like it ought to not exist here */
@@ -550,8 +558,7 @@ bind presentAMCommandAsSwingMenuItem(command :CompleteCommand, context, selected
     }
   }
 
-  def mi := <swing:JMenuItem>(commandLabel)
-  action(mi, thunk {
+  def mi := backend.getPresentKit()._menuItem(commandLabel, thunk {
     runToWindow(resultLabelTh(), command, mi)
   })
 
