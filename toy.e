@@ -165,8 +165,6 @@ def action := <aui:swing.action>
 def attachContextMenu := <aui:swing.attachContextMenu>
 def makeGridBagTable := <aui:swing.makeGridBagTable>
 
-def makeObjectSelector := <aui:swing.makeObjectSelectorAuthor>(one, zero, awtDropTarget)
-
 def presentInSwing
 def presentInSwingIcon
 def makeIconContext
@@ -199,6 +197,9 @@ def addStandardEventHandlers(component, object, context) {
 }
 
 def makeSwingBackend() {
+
+  def makeObjectSelector := <aui:swing.makeObjectSelectorAuthor>(one, zero, awtDropTarget)
+  
   def presentKit {
     to plabel(name :String, icon, context, object, getDoubleClickCommand) {
       # XXX object arg shouldn't be present; instead the context should be asked to install these things
@@ -224,6 +225,9 @@ def makeSwingBackend() {
       action(button, actionThunk)
       return button
     }
+
+    /** XXX this feels like it ought to not exist here */
+    to getObjectSelectorPresenter() { return makeObjectSelector }
 
     to text(s :String) {
       return makeJLabel(s)
@@ -400,7 +404,7 @@ bind presentFAMCommandInSwing(command, context) {
   for i => zos in command.getArgZoSlots() { 
     selsC."add(Component)"(backend.getPresentKit().x(
       context.subPresent(descs[i], false),
-      context.subPresentType(zos, makeObjectSelector, true),
+      context.subPresentType(zos, backend.getPresentKit().getObjectSelectorPresenter(), true),
     )) 
   }
 
@@ -415,8 +419,8 @@ bind presentFAMCommandInSwing(command, context) {
 def presentMakeFlexMapCommandInSwing(command, context) {
   
   def [kzs, vzs] := command.getArgZoSlots()
-  def ksel := context.subPresentType(kzs, makeObjectSelector, false)
-  def vsel := context.subPresentType(vzs, makeObjectSelector, false)
+  def ksel := context.subPresentType(kzs, backend.getPresentKit().getObjectSelectorPresenter(), false)
+  def vsel := context.subPresentType(vzs, backend.getPresentKit().getObjectSelectorPresenter(), false)
 
   return makeCommandUI(command, JPanel`
     ${backend.getPresentKit().text("Key type: ")}   $ksel.X
@@ -502,7 +506,7 @@ bind presentInSwing(object, context) {
       
     # broken - not all lamports hold ZOMs
     #match ls :near ? (ls.__getAllegedType().getFQName() =~ `org.erights.e.elib.slot.makeLamportSlot$$makeLamportSlot__C$$lamportSlot__@{_}__C`) { 
-    #  makeObjectSelector(ls, context) }
+    #  backend.getPresentKit().getObjectSelectorPresenter()(ls, context) }
     match c :FlexArgMessageCommand ? ([c.getRecipient(), c.getVerb(), c.getArgZoSlots().size()] == [<elib:tables.makeFlexMap>, "fromTypes", 2]) { 
       presentMakeFlexMapCommandInSwing(object, context) }
 
@@ -661,7 +665,7 @@ def presentCaplet(capletFile) {
         
         def fileSlot := makeLamportSlot(zero)
         
-        def fsel := backend.getRootContext().subPresentType(fileSlot, makeObjectSelector, false)
+        def fsel := backend.getRootContext().subPresentType(fileSlot, backend.getPresentKit().getObjectSelectorPresenter(), false)
         
         def run
         def ui := JPanel`
