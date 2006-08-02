@@ -150,9 +150,7 @@ def gatherCommands(object) :vow[List[Command]] {
 
 # ------------------------------------------------------------------------------
 
-if (currentVat.getRunnerKind() != "awt") {
-  interp.waitAtTop(currentVat.morphInto("awt"))
-}
+# "backend" name borrowed from McCLIM
 
 def presentInSwing
 def presentInSwingIcon
@@ -163,7 +161,6 @@ def presentAMCommandAsSwingMenuItem
 def runToWindow
 
 def makeSwingBackend() {
-
   def action := <aui:swing.action>
   def awtDropTarget := <awt:dnd.makeDropTarget>
   def borderFactory := <swing:makeBorderFactory>
@@ -230,7 +227,7 @@ def makeSwingBackend() {
       return component
     }
 
-    /** XXX this feels like it ought to not exist here */
+    /** XXX this ought to not exist here */
     to getObjectSelectorPresenter() { return makeObjectSelector }
 
     to text(s :String) {
@@ -328,6 +325,10 @@ def makeSwingBackend() {
       return frame
     }
   }
+}
+
+if (currentVat.getRunnerKind() != "awt") {
+  interp.waitAtTop(currentVat.morphInto("awt"))
 }
 def backend := makeSwingBackend()
 
@@ -656,7 +657,7 @@ def presentCaplet(capletFile) {
           match =="FRAME_MAKER" {
             return makeCapletFrame
           }
-          match =="DROP_TARGET" { return awtDropTarget } # XXX what authority is this, anyway? why does the powerbox pass it out freely, and yet it isn't in the safeScope?
+          match =="DROP_TARGET" { return awtDropTarget }
         }
       }
       
