@@ -31,6 +31,7 @@ def zero implements ZeroStamp {}
 def many implements ManyStamp {}
 
 def makeLamportSlot := <import:org.erights.e.elib.slot.makeLamportSlot>
+def whenever := <elib:slot.whenever>
 def toKey                    := <elib:tables.makeTraversalKey>
 def FinalSlot := <type:org.erights.e.elib.slot.FinalSlot>
 def Slot := <type:org.erights.e.elib.slot.Slot>
@@ -54,6 +55,7 @@ def makeTypedReporterSlot(slot, Value) {
 def CompleteCommand
 interface Command {
   to snapshot(partialEj) :CompleteCommand
+  to "&available"() :Slot
 }
 
 interface Presenter {
@@ -78,6 +80,7 @@ def makeSimpleMessageCommand(recipient :any, verb :any, args :List[any]) {
     to getRecipient() { return recipient }
     to getVerb() { return verb }
     to getArgs() { return args }
+    to "&available"() { return &true }
     to snapshot() { return simpleMessageCommand }
     to run() { return [E.send(recipient, verb, args), null] }
   }
@@ -87,6 +90,14 @@ interface FlexArgMessageCommand guards FlexArgMessageCommandStamp {}
 def makeFlexArgMessageCommand {
   to run(recipient :any, messageDesc :CommandMessageDesc, argZoSlots :List) {
     require(messageDesc.getParams().size() == argZoSlots.size())
+    
+    def &available := whenever(argZoSlots, thunk {
+      escape e {
+        for slot in argZoSlots { if (slot.getValue() !~ o :One) { e(false) } }
+        true
+      }
+    })
+    
     return def flexArgMessageCommand implements Command, FlexArgMessageCommandStamp {
       to getRecipient() { return recipient }
       to getVerb() { return messageDesc.getVerb() }
@@ -95,6 +106,7 @@ def makeFlexArgMessageCommand {
       to run() {
         return flexArgMessageCommand.snapshot(null).run()
       }
+      to "&available"() { return &available }
       to snapshot(partialEj) {
         return makeSimpleMessageCommand(recipient, messageDesc.getVerb(), accum [] for s in argZoSlots { _.with(
           switch (s.getValue()) {
@@ -404,6 +416,7 @@ def presentCompleteCommandInSwing(command, context) {
   `
 }
 
+def setupComponentReactor := <aui:swing.setupComponentReactor>
 def makeCommandUI(command :Command, editUI, context) {
   def hole := JPanel``
   hole.setLayout(<awt:FlowLayout>())
@@ -414,6 +427,22 @@ def makeCommandUI(command :Command, editUI, context) {
     hole."add(Component)"(context.subPresent(command.run(), true))
     hole.revalidate()
   })
+  
+  # XXX support far commands?
+  def &available := command."&available"()
+  
+  def updateAvailable(available) {
+    runButton.setEnabled(available)
+  }
+  
+  if ((&available).__respondsTo("whenUpdated", 1)) {
+    stderr.println(`lamport branch for ${&available}`)
+    runButton.setEnabled(false)
+    setupComponentReactor(runButton, &available, updateAvailable, null)
+  } else {
+    stderr.println(`static branch for ${&available}`)
+    updateAvailable(available)
+  }
 
   return JPanel`
     $editUI.X
@@ -740,6 +769,7 @@ def presentDirectory(dir, context) {
 interface OpenCommand guards OpenCommandStamp {}
 bind makeOpenCommand(file) {
   return def openCommand implements Command, CompleteCommand, OpenCommandStamp {
+    to "&available"() { return &true }
     to snapshot() { return openCommand }
     to run() { 
       return if (file.isDirectory()) {
