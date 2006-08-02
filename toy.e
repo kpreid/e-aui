@@ -4,6 +4,7 @@ pragma.disable("explicit-result-guard")
 pragma.enable("accumulator")
 pragma.enable("verb-curry")
 pragma.enable("easy-when")
+pragma.enable("anon-lambda")
 
 def <aui> := <import>[meta.context().getFQNPrefix().split("$")[0] + ".*"]
 
@@ -158,7 +159,7 @@ def presentInSwingIcon
 def makeIconContext
 
 def presentFAMCommandInSwing
-def presentAMCommandAsSwingMenuItem
+def presentAMCommand
 def runToWindow
 
 def makeSwingBackend() {
@@ -171,19 +172,28 @@ def makeSwingBackend() {
     def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<awt>, def _(_) {})
   def attachContextMenu := <aui:swing.attachContextMenu>
   
-  def addStandardEventHandlers(component, object, context) {
+  def menuPresentKit {
+    to button(name :String, actionThunk) {
+      def component := <swing:makeJMenuItem>(name)
+      action(component, actionThunk)
+      return component
+    }
+  }
+  
+  def addStandardEventHandlers(component, object, outerContext) {
     dragDropKit.setupLocalDragSource(component, thunk { object })
-    context <- getHooks() <- get("addListeners") <- (component) # XXX this should not be deferred, but we have a cyclic dependency
+    outerContext <- getHooks() <- get("addListeners") <- (component) # XXX this should not be deferred, but we have a cyclic dependency
   
     attachContextMenu(component, thunk {
       def m := <swing:JPopupMenu>()
+      def menuContext := makePresentationContext(fn _,_,c {c}, Ref.broken("no generic present"), [].asSet(), false, [].asMap(), menuPresentKit)
       
       when (gatherCommands(object)) -> doCommandMenu(commands) {
         for command in commands {
-          m."add(Component)"(presentAMCommandAsSwingMenuItem(command, context, object))
+          m."add(Component)"(presentAMCommand(command, menuContext, object))
         }
   
-        m.addPopupMenuListener(context.getHooks()["borderControlListener"])
+        m.addPopupMenuListener(outerContext.getHooks()["borderControlListener"])
   
         return m
       } catch p {
@@ -217,13 +227,6 @@ def makeSwingBackend() {
     
     to button(name :String, actionThunk) {
       def component := <swing:makeJButton>(name)
-      action(component, actionThunk)
-      return component
-    }
-
-    /** XXX decide whether this should exist */
-    to _menuItem(name :String, actionThunk) {
-      def component := <swing:makeJMenuItem>(name)
       action(component, actionThunk)
       return component
     }
@@ -537,7 +540,7 @@ bind runToWindow(title, command, originC) {
                  originC)
 }
 
-bind presentAMCommandAsSwingMenuItem(command :CompleteCommand, context, selected) {
+bind presentAMCommand(command :CompleteCommand, context, selected) {
   def [commandLabel, resultLabelTh] := switch (command) {
     match s :SimpleMessageCommand ? (s.getRecipient() == selected) {
       def verb := command.getVerb()
@@ -557,7 +560,7 @@ bind presentAMCommandAsSwingMenuItem(command :CompleteCommand, context, selected
     }
   }
 
-  def mi := context.kit()._menuItem(commandLabel, thunk {
+  def mi := context.kit().button(commandLabel, thunk {
     runToWindow(resultLabelTh(), command, mi)
   })
 
