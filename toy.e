@@ -115,9 +115,10 @@ def makeArglessMessageCommand(recipient :any, messageDesc :CommandMessageDesc) {
   }
 }
 
-def makePresentationContext(makePresentationBoundary, present, seen, quoting, hooks) {
+def makePresentationContext(makePresentationBoundary, present, seen, quoting, hooks, kit) {
   return def presentationContext {
     to quoting() { return quoting }
+    to kit() { return kit }
     to getHooks() { return hooks } # XXX in the ideal system this should not exist
     
     to subPresent(object, quoting) {
@@ -127,7 +128,7 @@ def makePresentationContext(makePresentationBoundary, present, seen, quoting, ho
     to subPresentType(object, type, quoting) {
       def key := toKey(object)
       def hooks
-      def subC := makePresentationContext(makePresentationBoundary, present, seen.with(key), quoting, hooks)
+      def subC := makePresentationContext(makePresentationBoundary, present, seen.with(key), quoting, hooks, kit)
       def [c, bind hooks] := makePresentationBoundary(object, subC, if (seen.contains(key)) {
         present("CYCLE", subC)
       } else {
@@ -298,7 +299,7 @@ def makeSwingBackend() {
     return [container, [=> borderControlListener, => addListeners]]
   }
 
-  def rootContext := makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, Ref.broken("no hooks"))
+  def rootContext := makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, Ref.broken("no hooks"), presentKit)
 
   return def backend {
     to getRootContext() { return rootContext }
@@ -339,7 +340,7 @@ def textLimit := 60
 def presentGenericInSwing(object, context) {
   def quoted := context.quoting()
 
-  def label := backend.getPresentKit().plabel("", presentInSwingIcon(object, makeIconContext(context)), context, object, thunk {thunk {[null,null]}})
+  def label := context.kit().plabel("", presentInSwingIcon(object, makeIconContext(context)), context, object, thunk {thunk {[null,null]}})
 
   def update() {
     def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
@@ -372,14 +373,14 @@ def presentCompleteCommandInSwing(command, context) {
   hole.setLayout(<awt:FlowLayout>())
   #hole.setPreferredSize(<awt:Dimension>(320, 100))
 
-  def runButton := backend.getPresentKit().button("Run", thunk {
+  def runButton := context.kit().button("Run", thunk {
     #hole.setPreferredSize(null)
     hole."add(Component)"(context.subPresent(command.run(), true))
     hole.revalidate()
   })
 
   return JPanel`
-    ${backend.getPresentKit().x(JPanel``, runButton)}.X
+    ${context.kit().x(JPanel``, runButton)}.X
     $hole.X.Y
   `
 }
@@ -389,7 +390,7 @@ def makeCommandUI(command :Command, editUI, context) {
   hole.setLayout(<awt:FlowLayout>())
   hole.setPreferredSize(<awt:Dimension>(320, 100))
 
-  def runButton := backend.getPresentKit().button("Run", thunk {
+  def runButton := context.kit().button("Run", thunk {
     hole.setPreferredSize(null)
     hole."add(Component)"(context.subPresent(command.run(), true))
     hole.revalidate()
@@ -397,7 +398,7 @@ def makeCommandUI(command :Command, editUI, context) {
 
   return JPanel`
     $editUI.X
-    ${backend.getPresentKit().x(JPanel``, runButton)}.X
+    ${context.kit().x(JPanel``, runButton)}.X
     $hole.Y
   `
 }
@@ -407,16 +408,16 @@ bind presentFAMCommandInSwing(command, context) {
 
   def selsC := <swing:Box>(1)
   for i => zos in command.getArgZoSlots() { 
-    selsC."add(Component)"(backend.getPresentKit().x(
+    selsC."add(Component)"(context.kit().x(
       context.subPresent(descs[i], false),
-      context.subPresentType(zos, backend.getPresentKit().getObjectSelectorPresenter(), true),
+      context.subPresentType(zos, context.kit().getObjectSelectorPresenter(), true),
     )) 
   }
 
-  def leftLabel := JPanel`${context.subPresent(command.getRecipient(), true)} ${backend.getPresentKit().text(" <- ")} ${context.subPresent(command.getVerb(), false)} ${backend.getPresentKit().text("(")}`
+  def leftLabel := JPanel`${context.subPresent(command.getRecipient(), true)} ${context.kit().text(" <- ")} ${context.subPresent(command.getVerb(), false)} ${context.kit().text("(")}`
 
   return makeCommandUI(command, JPanel`
-    $leftLabel $selsC ${backend.getPresentKit().text(")")}
+    $leftLabel $selsC ${context.kit().text(")")}
   `, context)
 }
 
@@ -424,17 +425,17 @@ bind presentFAMCommandInSwing(command, context) {
 def presentMakeFlexMapCommandInSwing(command, context) {
   
   def [kzs, vzs] := command.getArgZoSlots()
-  def ksel := context.subPresentType(kzs, backend.getPresentKit().getObjectSelectorPresenter(), false)
-  def vsel := context.subPresentType(vzs, backend.getPresentKit().getObjectSelectorPresenter(), false)
+  def ksel := context.subPresentType(kzs, context.kit().getObjectSelectorPresenter(), false)
+  def vsel := context.subPresentType(vzs, context.kit().getObjectSelectorPresenter(), false)
 
   return makeCommandUI(command, JPanel`
-    ${backend.getPresentKit().text("Key type: ")}   $ksel.X
-    ${backend.getPresentKit().text("Value type: ")} $vsel.X
+    ${context.kit().text("Key type: ")}   $ksel.X
+    ${context.kit().text("Value type: ")} $vsel.X
   `, context)
 }
 
 def presentListY(list, context) {
-  def box := E.call(backend.getPresentKit(), "y", accum [] for item in list { _.with(context.subPresent(item, context.quoting())) })
+  def box := E.call(context.kit(), "y", accum [] for item in list { _.with(context.subPresent(item, context.quoting())) })
   return box
 }
 def makeGridBagTable := <aui:swing.makeGridBagTable>
@@ -481,7 +482,7 @@ def presentMapY(map, context) {
 def presentSwitching(promise, context) {
   def placeholder := presentGenericInSwing(promise, context)
 
-  def hole := backend.getPresentKit().x(placeholder)
+  def hole := context.kit().x(placeholder)
   
   Ref.whenResolved(promise, def switchPresentation(_) {
     #println(`resolved $promise`)
@@ -508,11 +509,11 @@ bind presentInSwing(object, context) {
       context.subPresent(x.getValue(), context.quoting()) }
 
     #match x :near ? x.__respondsTo("paintIcon", 4) { # XXX better solution needed -- Java interfaces should respond to something like actuallyDeclared to give a restrictive guard
-    #  backend.getPresentKit().text(x) }
+    #  context.kit().text(x) }
       
     # broken - not all lamports hold ZOMs
     #match ls :near ? (ls.__getAllegedType().getFQName() =~ `org.erights.e.elib.slot.makeLamportSlot$$makeLamportSlot__C$$lamportSlot__@{_}__C`) { 
-    #  backend.getPresentKit().getObjectSelectorPresenter()(ls, context) }
+    #  context.kit().getObjectSelectorPresenter()(ls, context) }
     match c :FlexArgMessageCommand ? ([c.getRecipient(), c.getVerb(), c.getArgZoSlots().size()] == [<elib:tables.makeFlexMap>, "fromTypes", 2]) { 
       presentMakeFlexMapCommandInSwing(object, context) }
 
@@ -556,7 +557,7 @@ bind presentAMCommandAsSwingMenuItem(command :CompleteCommand, context, selected
     }
   }
 
-  def mi := backend.getPresentKit()._menuItem(commandLabel, thunk {
+  def mi := context.kit()._menuItem(commandLabel, thunk {
     runToWindow(resultLabelTh(), command, mi)
   })
 
@@ -672,13 +673,13 @@ def presentCaplet(capletFile) {
         
         def fileSlot := makeLamportSlot(zero)
         
-        def fsel := backend.getRootContext().subPresentType(fileSlot, backend.getPresentKit().getObjectSelectorPresenter(), false)
+        def fsel := backend.getRootContext().subPresentType(fileSlot, context.kit().getObjectSelectorPresenter(), false)
         
         def run
         def ui := JPanel`
-          ${backend.getPresentKit().text(`Justification: "$justification"`)}
+          ${context.kit().text(`Justification: "$justification"`)}
           $fsel >
-          ${JPanel``}.X ${backend.getPresentKit().button("Run", run)}
+          ${JPanel``}.X ${context.kit().button("Run", run)}
         `
 
         def context := backend.getRootContext()
@@ -712,12 +713,12 @@ def makeOpenCommand
 
 def presentDirEntry(name) {
   return def present(file, context) {
-    return backend.getPresentKit().plabel(name, presentInSwingIcon(file, makeIconContext(context)), context, file, thunk { makeOpenCommand(file) })
+    return context.kit().plabel(name, presentInSwingIcon(file, makeIconContext(context)), context, file, thunk { makeOpenCommand(file) })
   }
 }
 
 def presentDirectory(dir, context) {
-  def container := backend.getPresentKit().y()
+  def container := context.kit().y()
   for name => file in dir {
     container."add(Component)"(context.subPresentType(file, presentDirEntry(name), true))
   }
@@ -759,7 +760,7 @@ def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
 
 def makeJTextField := <swing:makeJTextField>
 def presentSeqEval(seqEval, context) {
-  def box := backend.getPresentKit().y(def filler := JPanel``)
+  def box := context.kit().y(def filler := JPanel``)
   filler.setPreferredSize(<awt:Dimension>(320,320))
   def read() {
     box."add(Component)"(def field := makeJTextField())
@@ -768,7 +769,7 @@ def presentSeqEval(seqEval, context) {
         if (e.getKeyCode() == VK_ENTER) {
           def expr := e__quasiParser(field.getText())
           box.remove(field)
-          box.add(JPanel`${backend.getPresentKit().text("? ")} ${context.subPresent(expr, false)} ${JPanel``}`)
+          box.add(JPanel`${context.kit().text("? ")} ${context.subPresent(expr, false)} ${JPanel``}`)
           box.add(context.subPresent(seqEval <- (expr), true))
           box.revalidate()
           read <- ()
@@ -803,4 +804,4 @@ def example := [
 ]
 
 # disabled for now as the REPL incorporates this mostly
-# backend.openFrame("Toy", makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, [].asMap()).subPresent(example, true), null) 
+# backend.openFrame("Toy", rootContext.subPresent(example, true), null) 
