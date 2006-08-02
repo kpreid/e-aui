@@ -171,17 +171,6 @@ def presentInSwing
 def presentInSwingIcon
 def makeIconContext
 
-def enbox {
-  #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
-  match [dn ? (["x" => 0, "y" => 1] =~ [(dn) => dir]|_), components] {
-    def box := <swing:makeBox>(dir)
-    for c in components { 
-      box."add(Component)"(c) 
-    }
-    box
-  }
-}
-
 def presentFAMCommandInSwing
 def presentAMCommandAsSwingMenuItem
 def runToWindow
@@ -234,6 +223,15 @@ def makeSwingBackend() {
       def button := <swing:makeJButton>(name)
       action(button, actionThunk)
       return button
+    }
+
+    #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
+    match [dn ? (["x" => 0, "y" => 1] =~ [(dn) => dir]|_), components] {
+      def box := <swing:makeBox>(dir)
+      for c in components { 
+        box."add(Component)"(c) 
+      }
+      box
     }
   }
 
@@ -368,7 +366,7 @@ def presentCompleteCommandInSwing(command, context) {
   })
 
   return JPanel`
-    ${enbox.x(JPanel``, runButton)}.X
+    ${backend.getPresentKit().x(JPanel``, runButton)}.X
     $hole.X.Y
   `
 }
@@ -386,7 +384,7 @@ def makeCommandUI(command :Command, editUI, context) {
 
   return JPanel`
     $editUI.X
-    ${enbox.x(JPanel``, runButton)}.X
+    ${backend.getPresentKit().x(JPanel``, runButton)}.X
     $hole.Y
   `
 }
@@ -396,7 +394,7 @@ bind presentFAMCommandInSwing(command, context) {
 
   def selsC := <swing:Box>(1)
   for i => zos in command.getArgZoSlots() { 
-    selsC."add(Component)"(enbox.x(
+    selsC."add(Component)"(backend.getPresentKit().x(
       context.subPresent(descs[i], false),
       context.subPresentType(zos, makeObjectSelector, true),
     )) 
@@ -423,7 +421,7 @@ def presentMakeFlexMapCommandInSwing(command, context) {
 }
 
 def presentListY(list, context) {
-  def box := E.call(enbox, "y", accum [] for item in list { _.with(context.subPresent(item, context.quoting())) })
+  def box := E.call(backend.getPresentKit(), "y", accum [] for item in list { _.with(context.subPresent(item, context.quoting())) })
   return box
 }
 def presentMapY(map, context) {
@@ -469,7 +467,7 @@ def presentMapY(map, context) {
 def presentSwitching(promise, context) {
   def placeholder := presentGenericInSwing(promise, context)
 
-  def hole := enbox.x(placeholder)
+  def hole := backend.getPresentKit().x(placeholder)
   
   Ref.whenResolved(promise, def switchPresentation(_) {
     #println(`resolved $promise`)
@@ -703,7 +701,7 @@ def presentDirEntry(name) {
 }
 
 def presentDirectory(dir, context) {
-  def container := enbox.y()
+  def container := backend.getPresentKit().y()
   for name => file in dir {
     container."add(Component)"(context.subPresentType(file, presentDirEntry(name), true))
   }
@@ -744,7 +742,7 @@ def seqEval := {
 def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
 
 def presentSeqEval(seqEval, context) {
-  def box := enbox.y(def filler := JPanel``)
+  def box := backend.getPresentKit().y(def filler := JPanel``)
   filler.setPreferredSize(<awt:Dimension>(320,320))
   def read() {
     box."add(Component)"(def field := makeJTextField())
