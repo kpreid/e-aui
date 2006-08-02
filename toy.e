@@ -209,8 +209,6 @@ def addStandardEventHandlers(component, object, context) {
   })
 }
 
-def makeSwingBoundary
-
 def makeSwingBackend() {
   def presentKit {
     to plabel(name :String, icon, context, object, getDoubleClickCommand) {
@@ -237,6 +235,60 @@ def makeSwingBackend() {
       action(button, actionThunk)
       return button
     }
+  }
+
+  def normalBorder := borderFactory.createEmptyBorder(2, 2, 2, 2)
+  def boundaryBorder := borderFactory.createRaisedBevelBorder()
+  def activeBorder := borderFactory.createBevelBorder(
+    <swing:border.BevelBorder>.getRAISED(),
+    <awt:Color>."run(float, float, float)"(0.7, 0.7, 1.0),
+    <awt:Color>."run(float, float, float)"(0.4, 0.4, 0.7))
+
+  def makeSwingBoundary(object, context, content) {
+    def container := JPanel`$content`
+  
+    addStandardEventHandlers(container, object, context)
+  
+  
+    var mouseover := [].asSet()
+    var active := false
+  
+    def updateBorder() {
+      container.setBorder(
+        if (active) { activeBorder } else if (mouseover.size() > 0) { boundaryBorder } else { normalBorder } )
+    }
+    updateBorder()
+  
+    
+    
+    def addListeners(c) {
+      c.addMouseListener(def mouseOverUpdateListener {
+      to mouseEntered(event) :void { try {
+        mouseover with= mouseOverUpdateListener
+        updateBorder()
+      } catch p { throw <- (p) } }
+      to mouseExited(event) :void { try {
+        mouseover without= mouseOverUpdateListener
+        updateBorder()
+      } catch p { throw <- (p) } }
+      match _ {}
+    })
+    }
+    addListeners(container)
+  
+    def borderControlListener { # XXX this needs renaming now
+      to popupMenuWillBecomeInvisible(e) { try { 
+        active := false
+        updateBorder()
+      } catch p { throw <- (p) } }
+      to popupMenuWillBecomeVisible(e) { try {
+        active := true
+        updateBorder()
+      } catch p { throw <- (p) } }
+      match msg {}
+    }
+  
+    return [container, [=> borderControlListener, => addListeners]]
   }
 
   def rootContext := makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, Ref.broken("no hooks"))
@@ -498,62 +550,6 @@ bind presentAMCommandAsSwingMenuItem(command :CompleteCommand, context, selected
   })
 
   return mi
-}
-
-
-
-def normalBorder := borderFactory.createEmptyBorder(2, 2, 2, 2)
-def boundaryBorder := borderFactory.createRaisedBevelBorder()
-def activeBorder := borderFactory.createBevelBorder(
-  <swing:border.BevelBorder>.getRAISED(),
-  <awt:Color>."run(float, float, float)"(0.7, 0.7, 1.0),
-  <awt:Color>."run(float, float, float)"(0.4, 0.4, 0.7))
-
-bind makeSwingBoundary(object, context, content) {
-  def container := JPanel`$content`
-
-  addStandardEventHandlers(container, object, context)
-
-
-  var mouseover := [].asSet()
-  var active := false
-
-  def updateBorder() {
-    container.setBorder(
-      if (active) { activeBorder } else if (mouseover.size() > 0) { boundaryBorder } else { normalBorder } )
-  }
-  updateBorder()
-
-  
-  
-  def addListeners(c) {
-    c.addMouseListener(def mouseOverUpdateListener {
-    to mouseEntered(event) :void { try {
-      mouseover with= mouseOverUpdateListener
-      updateBorder()
-    } catch p { throw <- (p) } }
-    to mouseExited(event) :void { try {
-      mouseover without= mouseOverUpdateListener
-      updateBorder()
-    } catch p { throw <- (p) } }
-    match _ {}
-  })
-  }
-  addListeners(container)
-
-  def borderControlListener { # XXX this needs renaming now
-    to popupMenuWillBecomeInvisible(e) { try { 
-      active := false
-      updateBorder()
-    } catch p { throw <- (p) } }
-    to popupMenuWillBecomeVisible(e) { try {
-      active := true
-      updateBorder()
-    } catch p { throw <- (p) } }
-    match msg {}
-  }
-
-  return [container, [=> borderControlListener, => addListeners]]
 }
 
 
