@@ -36,6 +36,7 @@ def FinalSlot := <type:org.erights.e.elib.slot.FinalSlot>
 def Slot := <type:org.erights.e.elib.slot.Slot>
 def EverReporter := <type:org.erights.e.elib.slot.EverReporter>
 def makeStoneCast := <import:org.erights.e.facet.makeStoneCast>
+def File := <type:java.io.File>
 
 interface TypedReporterSlot extends EverReporter {
   # XXX is it appropriate to duplicate the extends' method info here?
@@ -155,7 +156,7 @@ def gatherCommands(object) :vow[List[Command]] {
 # "backend" name borrowed from McCLIM
 
 def presentInSwing
-def presentInSwingIcon
+def presentAsIcon
 def makeIconContext
 
 def presentFAMCommandInSwing
@@ -167,6 +168,7 @@ def makeSwingBackend() {
   def awtDropTarget := <awt:dnd.makeDropTarget>
   def borderFactory := <swing:makeBorderFactory>
   def makeJLabel := <swing:makeJLabel>
+  def makeImageIcon := <swing:makeImageIcon>
   def makeObjectSelector := <aui:swing.makeObjectSelectorAuthor>(one, zero, awtDropTarget)
   def swingConstants := <swing:makeSwingConstants>
     def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<awt>, def _(_) {})
@@ -180,13 +182,19 @@ def makeSwingBackend() {
     }
   }
   
+  def iconPresentKit {
+    to image(resource) {
+      return makeImageIcon(resource)
+    }
+  }
+  
   def addStandardEventHandlers(component, object, outerContext) {
     dragDropKit.setupLocalDragSource(component, thunk { object })
     outerContext <- getHooks() <- get("addListeners") <- (component) # XXX this should not be deferred, but we have a cyclic dependency
   
     attachContextMenu(component, thunk {
       def m := <swing:JPopupMenu>()
-      def menuContext := makePresentationContext(fn _,_,c {c}, Ref.broken("no generic present"), [].asSet(), false, [].asMap(), menuPresentKit)
+      def menuContext := makePresentationContext(fn _,_,c {[c,[].asMap()]}, Ref.broken("no generic present"), [].asSet(), false, [].asMap(), menuPresentKit)
       
       when (gatherCommands(object)) -> doCommandMenu(commands) {
         for command in commands {
@@ -206,7 +214,15 @@ def makeSwingBackend() {
   
   def presentKit {
     /** XXX what does this name mean? */
-    to plabel(name :String, icon, context, object, getDoubleClickCommand) {
+    to plabel(name :String, optIconPresenter, context, object, getDoubleClickCommand) {
+    
+      def iconContext := makePresentationContext(fn _,_,c {[c,[].asMap()]}, presentAsIcon, [].asSet(), false, [].asMap(), iconPresentKit)
+      def icon := if (optIconPresenter != null) {
+        iconContext.subPresentType(object, optIconPresenter, false)
+      } else { 
+        iconContext.subPresent(object, false)
+      }
+    
       # XXX object arg shouldn't be present; instead the context should be asked to install these things
       def label := makeJLabel(name, icon, swingConstants.getLEADING())
       
@@ -343,7 +359,7 @@ def textLimit := 60
 def presentGenericInSwing(object, context) {
   def quoted := context.quoting()
 
-  def label := context.kit().plabel("", presentInSwingIcon(object, makeIconContext(context)), context, object, thunk {thunk {[null,null]}})
+  def label := context.kit().plabel("", null, context, object, thunk {thunk {[null,null]}})
 
   def update() {
     def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
@@ -572,22 +588,15 @@ bind presentAMCommand(command :CompleteCommand, context, selected) {
 
 # Icons
 
-def genericIcon := <swing:makeImageIcon>(<resource:org/cubik/cle/aui/swing/item.gif>)
-def fileIcon := <swing:makeImageIcon>(<resource:com/skyhunter/capDesk/icons/noLauncher.gif>)
-def dirIcon := <swing:makeImageIcon>(<resource:com/skyhunter/capDesk/icons/folder.gif>)
-
-def File := <type:java.io.File>
-
-bind makeIconContext(context) {
-  return context
-}
-
-bind presentInSwingIcon(object, context) {
+# XXX TODO: reestablish caching of icons. how can this be made compatible with context-specific presentation?
+bind presentAsIcon(object, context) {
+  def kit := context.kit()
   return switch (object) {
     match f :File {
-      f.isDirectory().pick(dirIcon, fileIcon)
+      f.isDirectory().pick(kit.image(<resource:com/skyhunter/capDesk/icons/folder.gif>), 
+                           kit.image(<resource:com/skyhunter/capDesk/icons/noLauncher.gif>))
     }
-    match _ { genericIcon }
+    match _ { kit.image(<resource:org/cubik/cle/aui/swing/item.gif>) }
   }
 }
 
@@ -716,7 +725,7 @@ def makeOpenCommand
 
 def presentDirEntry(name) {
   return def present(file, context) {
-    return context.kit().plabel(name, presentInSwingIcon(file, makeIconContext(context)), context, file, thunk { makeOpenCommand(file) })
+    return context.kit().plabel(name, null, context, file, thunk { makeOpenCommand(file) })
   }
 }
 
