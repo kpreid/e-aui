@@ -804,23 +804,24 @@ def makeJTextField := <swing:makeJTextField>
 def presentSeqEval(seqEval, context) {
   def box := context.kit().y(def filler := JPanel``)
   filler.setPreferredSize(<awt:Dimension>(320,320))
-  def read() {
-    box."add(Component)"(def field := makeJTextField())
-    field.addKeyListener(def enterKeyListener {
-      to keyPressed(e) :void { try {
-        if (e.getKeyCode() == VK_ENTER) {
-          def expr := e__quasiParser(field.getText())
-          box.remove(field)
-          box.add(JPanel`${context.kit().text("? ")} ${context.subPresent(expr, false)} ${JPanel``}`)
-          box.add(context.subPresent(seqEval <- (expr), true))
-          box.revalidate()
-          read <- ()
-        }
-      } catch p { throw <- (p) } }
-      match _ {}
-    })
-  }
-  read()
+
+  box."add(Component)"(def field := makeJTextField())
+  field.addKeyListener(def enterKeyListener {
+    to keyPressed(e) :void { try {
+      if (e.getKeyCode() == VK_ENTER) {
+        def expr := e__quasiParser(field.getText())
+        field.setText("")
+        box."add(Component, int)"(
+          JPanel`${context.kit().text("? ")} ${context.subPresent(expr, false)} ${JPanel``}.X.Y
+                 ${JPanel``}.Y             V                                             V
+          `, box.getComponentCount() - 1)
+        box."add(Component, int)"(context.subPresent(seqEval <- (expr), true), box.getComponentCount() - 1)
+        box.revalidate()
+      }
+    } catch p { throw <- (p) } }
+    match _ {}
+  })
+
   return box
 }
 
