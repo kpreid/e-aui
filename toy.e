@@ -185,6 +185,8 @@ def makeSwingBackend() {
   def swingConstants := <swing:makeSwingConstants>
     def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<awt>, def _(_) {})
   def attachContextMenu := <aui:swing.attachContextMenu>
+  def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
+  def makeJTextField := <swing:makeJTextField>
   
   def menuPresentKit {
     to button(name :String, actionThunk) {
@@ -264,6 +266,20 @@ def makeSwingBackend() {
 
     to text(s :String) {
       return makeJLabel(s)
+    }
+
+    to _textLineCommandField(handler) {
+      def field := makeJTextField()
+      field.addKeyListener(def enterKeyListener {
+        to keyPressed(e) :void { try {
+          if (e.getKeyCode() == VK_ENTER) {
+            handler <- (field.getText())
+            field.setText("")
+          }
+        } catch p { throw <- (p) } }
+        match _ {}
+      })
+      return field
     }
 
     #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
@@ -798,29 +814,20 @@ def seqEval := {
   }
 }
 
-def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
-
-def makeJTextField := <swing:makeJTextField>
 def presentSeqEval(seqEval, context) {
   def box := context.kit().y(def filler := JPanel``)
   filler.setPreferredSize(<awt:Dimension>(320,320))
 
-  box."add(Component)"(def field := makeJTextField())
-  field.addKeyListener(def enterKeyListener {
-    to keyPressed(e) :void { try {
-      if (e.getKeyCode() == VK_ENTER) {
-        def expr := e__quasiParser(field.getText())
-        field.setText("")
-        box."add(Component, int)"(
-          JPanel`${context.kit().text("? ")} ${context.subPresent(expr, false)} ${JPanel``}.X.Y
-                 ${JPanel``}.Y             V                                             V
-          `, box.getComponentCount() - 1)
-        box."add(Component, int)"(context.subPresent(seqEval <- (expr), true), box.getComponentCount() - 1)
-        box.revalidate()
-      }
-    } catch p { throw <- (p) } }
-    match _ {}
-  })
+  box."add(Component)"(context.kit()._textLineCommandField(def handle(line) {
+    # XXX needs cleanup.
+    def expr := e__quasiParser(line)
+    box."add(Component, int)"(
+      JPanel`${context.kit().text("? ")} ${context.subPresent(expr, false)} ${JPanel``}.X.Y
+             ${JPanel``}.Y             V                                             V
+      `, box.getComponentCount() - 1)
+    box."add(Component, int)"(context.subPresent(seqEval <- (expr), true), box.getComponentCount() - 1)
+    box.revalidate()
+  }))
 
   return box
 }
