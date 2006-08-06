@@ -387,12 +387,14 @@ def textLimit := 60
 def presentGenericInSwing(object, context) {
   def quoted := context.quoting()
 
-  def label := context.kit().plabel("", null, context, object, thunk {thunk {[null,null]}})
-
-  def update() {
+  def computeText() {
     def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
-    label.setText(if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t})
+    return if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
   }
+
+  def label := context.kit().plabel(computeText(), null, context, object, thunk {thunk {[null,null]}})
+
+  def update() { label.setText(computeText()) }
   
   if (!Ref.isResolved(object)) {
     Ref.whenResolved(object, def done(_) :void {
