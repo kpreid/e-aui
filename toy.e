@@ -6,7 +6,7 @@ pragma.enable("verb-curry")
 pragma.enable("easy-when")
 pragma.enable("anon-lambda")
 
-def <aui> := <import>[meta.context().getFQNPrefix().split("$")[0] + ".*"]
+def <aui> := <import:org.cubik.cle.aui.*>
 
 interface Zero guards ZeroStamp {}
 def One := <type:org.erights.e.elib.slot.FinalSlot>
