@@ -154,10 +154,15 @@ def makePresentationContext(makePresentationBoundary, present, seen, quoting, ho
 }
 
 def gatherCommands(object) :vow[List[Command]] {
-  #def oisw := makeArglessMessageCommand(openInSeparateWindow, openInSeparateWindow.__getAllegedType().getMessageTypes()["run/1"])
+  # XXX we need general architecture for command templates filled in with a single object, and presenting them
+
+  # XXX clean this up
+  def openInSeparateWindow extends makeSimpleMessageCommand(__identityFunc, "run", [object]) implements Command, CompleteCommand {}
+ 
+  def baseCommands := [openInSeparateWindow]
  
   return when (object <- __getAllegedType()) -> _(allegedType) {
-    return accum [] for desc ? (desc.getVerb().indexOf1("()"[0]) == -1) in allegedType.getMessageTypes() {
+    return accum baseCommands for desc ? (desc.getVerb().indexOf1("()"[0]) == -1) in allegedType.getMessageTypes() {
       _.with(makeArglessMessageCommand(object, desc))
     }
   }
