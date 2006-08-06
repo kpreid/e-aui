@@ -777,10 +777,10 @@ def presentDirEntry(name) {
 }
 
 def presentDirectory(dir, context) {
-  def container := context.kit().y()
-  for name => file in dir {
-    container."add(Component)"(context.subPresentType(file, presentDirEntry(name), true))
-  }
+  def container := E.call(context.kit(), "y",
+    accum [] for name => file in dir {
+      _.with(context.subPresentType(file, presentDirEntry(name), true))
+    })
   return container
 }
 
