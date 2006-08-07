@@ -500,6 +500,13 @@ def presentMakeFlexMapCommandInSwing(command, context) {
   `, context)
 }
 
+def presentTwine(object :Twine, context) {
+  # XXX we need some sort of mechanism for indicating when not to truncate a string
+  def t := if (context.quoting()) {E.toQuote(object)} else {E.toString(object)}
+  def short := if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
+  return context.kit().plabel(short, fn _,_ {null}, context, object, thunk {thunk {[null,null]}})
+}
+
 def presentListY(list, context) {
   def box := E.call(context.kit(), "y", accum [] for item in list { _.with(context.subPresent(item, context.quoting())) })
   return box
@@ -567,10 +574,9 @@ bind presentInSwing(object, context) {
   return switch (object) {
     match p ? (!Ref.isResolved(p)) {
       presentSwitching(p, context) }
-    match x :List ? (x !~ y :String) {
-      presentListY(x, context) }
-    match x :Map {
-      presentMapY(x, context) }
+    match x :Twine { presentTwine(x, context) }
+    match x :List  { presentListY(x, context) }
+    match x :Map   { presentMapY(x, context) }
     match x :FinalSlot {
       context.subPresent(x.getValue(), context.quoting()) }
 
