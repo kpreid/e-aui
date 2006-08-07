@@ -422,6 +422,14 @@ def presentGenericInSwing(object, context) {
   return label
 }
 
+def presentCommandRun(context, [result, optPresenter]) {
+  return if (optPresenter != null) {
+    context.subPresentType(result, optPresenter, true)
+  } else {
+    context.subPresent(result, true)
+  }
+}
+
 def presentCompleteCommandInSwing(command, context) {
   def hole := JPanel``
   hole.setLayout(<awt:FlowLayout>())
@@ -429,7 +437,7 @@ def presentCompleteCommandInSwing(command, context) {
 
   def runButton := context.kit().button("Run", thunk {
     #hole.setPreferredSize(null)
-    hole."add(Component)"(context.subPresent(command.run(), true))
+    hole."add(Component)"(presentCommandRun(context, command.run()))
     hole.revalidate()
   })
 
@@ -447,7 +455,7 @@ def makeCommandUI(command :Command, editUI, context) {
 
   def runButton := context.kit().button("Run", thunk {
     hole.setPreferredSize(null)
-    hole."add(Component)"(context.subPresent(command.run(), true))
+    hole."add(Component)"(presentCommandRun(context, command.run()))
     hole.revalidate()
   })
   
@@ -599,13 +607,10 @@ bind presentInSwing(object, context) {
 }
 
 bind runToWindow(title, command, originC) {
-  def context := backend.getRootContext()
-  def [result, optPresenter] := command.run()
   backend.openFrame(title, 
-                 if (optPresenter != null) \
-                   {context.subPresentType(result, optPresenter, true)} else \
-                   {context.subPresent(result, true)}, 
-                 originC)
+                    presentCommandRun(backend.getRootContext(), 
+                                      command.run()),
+                    originC)
 }
 
 bind presentAMCommand(command :CompleteCommand, context, selected) {
