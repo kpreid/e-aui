@@ -474,16 +474,16 @@ bind presentFAMCommandInSwing(command, context) {
 
   def selsC := <swing:Box>(1)
   for i => zos in command.getArgZoSlots() { 
-    selsC."add(Component)"(context.kit().x(
-      context.subPresent(descs[i], false),
-      context.subPresentType(zos, context.kit().getObjectSelectorPresenter(), true),
-    )) 
+    selsC."add(Component)"(JPanel`
+      ${context.subPresent(descs[i], false)} $\
+        ${context.subPresentType(zos, context.kit().getObjectSelectorPresenter(), true)}.X
+    `) 
   }
 
   def leftLabel := JPanel`${context.subPresent(command.getRecipient(), true)} ${context.kit().text(" <- ")} ${context.subPresent(command.getVerb(), false)} ${context.kit().text("(")}`
 
   return makeCommandUI(command, JPanel`
-    $leftLabel $selsC ${context.kit().text(")")}
+    $leftLabel $selsC.X ${context.kit().text(")")}
   `, context)
 }
 
