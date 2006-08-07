@@ -430,23 +430,6 @@ def presentCommandRun(context, [result, optPresenter]) {
   }
 }
 
-def presentCompleteCommandInSwing(command, context) {
-  def hole := JPanel``
-  hole.setLayout(<awt:FlowLayout>())
-  #hole.setPreferredSize(<awt:Dimension>(320, 100))
-
-  def runButton := context.kit().button("Run", thunk {
-    #hole.setPreferredSize(null)
-    hole."add(Component)"(presentCommandRun(context, command.run()))
-    hole.revalidate()
-  })
-
-  return JPanel`
-    ${context.kit().x(JPanel``, runButton)}.X
-    $hole.X.Y
-  `
-}
-
 def setupComponentReactor := <aui:swing.setupComponentReactor>
 def makeCommandUI(command :Command, editUI, context) {
   def hole := JPanel``
@@ -480,6 +463,10 @@ def makeCommandUI(command :Command, editUI, context) {
     ${context.kit().x(JPanel``, runButton)}.X
     $hole.Y
   `
+}
+
+def presentCompleteCommandInSwing(command, context) {
+  return makeCommandUI(command, JPanel``, context)
 }
 
 bind presentFAMCommandInSwing(command, context) {
