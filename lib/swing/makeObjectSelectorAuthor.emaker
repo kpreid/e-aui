@@ -20,10 +20,11 @@ def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser
 def setupComponentReactor    := <aui:swing.setupComponentReactor>
 def toKey                    := <elib:tables.makeTraversalKey>
 def makeJLabel               := <swing:makeJLabel>
+def [=> one, => zero] | _    := <aui:data.zeroOneMany>
 
 def markerIcon := <swing:makeImageIcon>(<resource:org/cubik/cle/aui/swing/slot-target.gif>)
 
-def makeObjectSelectorAuthor(one, zero, awtDropTarget) :any {
+def makeObjectSelectorAuthor(awtDropTarget) :any {
   def makeObjectSelector(zoSlot, context) :any {
     
     def hole := JPanel``

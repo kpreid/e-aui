@@ -12,11 +12,11 @@ pragma.enable("anon-lambda")
 def <aui> := <import:org.cubik.cle.aui.*>
 
 def makeLamportSlot := <import:org.erights.e.elib.slot.makeLamportSlot>
-def toKey                    := <elib:tables.makeTraversalKey>
 def File := <type:java.io.File>
 
 def Command                  := <aui:command.Command>
 def CompleteCommand          := <aui:command.CompleteCommand>
+def gatherCommands
 
 def [=> SimpleMessageCommand,
      => makeSimpleMessageCommand,
@@ -28,33 +28,11 @@ def [=> SimpleMessageCommand,
      => zero, => one, => many,
      => ZOM, => ZO] | _ \
   := def auiCommon := <aui:command.messyCommandDefinitions> \
-                    | <aui:data.zeroOneMany>
+                    | <aui:data.zeroOneMany> \
+                    | [=> gatherCommands]
 
-def makePresentationContext(makePresentationBoundary, present, seen, quoting, hooks, kit) {
-  return def presentationContext {
-    to quoting() { return quoting }
-    to kit() { return kit }
-    to getHooks() { return hooks } # XXX in the ideal system this should not exist
-    
-    to subPresent(object, quoting) {
-      return presentationContext.subPresentType(object, present, quoting)
-    }
-    
-    to subPresentType(object, type, quoting) {
-      def key := toKey(object)
-      def hooks
-      def subC := makePresentationContext(makePresentationBoundary, present, seen.with(key), quoting, hooks, kit)
-      def [c, bind hooks] := makePresentationBoundary(object, subC, if (seen.contains(key)) {
-        present("CYCLE", subC)
-      } else {
-        type(object, subC)
-      })
-      return c
-    }
-  }
-}
 
-def gatherCommands(object) :vow[List[Command]] {
+bind gatherCommands(object) :vow[List[Command]] {
   # XXX we need general architecture for command templates filled in with a single object, and presenting them
 
   # XXX clean this up
@@ -75,256 +53,15 @@ def gatherCommands(object) :vow[List[Command]] {
 
 def presentInSwing
 def presentAsIcon
-def makeIconContext
-
-def presentFAMCommandInSwing
-def presentAMCommand
-def runToWindow
-
-def makeSwingBackend() {
-  def action := <aui:swing.action>
-  def awtDropTarget := <awt:dnd.makeDropTarget>
-  def borderFactory := <swing:makeBorderFactory>
-  def makeJLabel := <swing:makeJLabel>
-  def makeImageIcon := <swing:makeImageIcon>
-  def makeObjectSelector := <aui:swing.makeObjectSelectorAuthor>(one, zero, awtDropTarget)
-  def swingConstants := <swing:makeSwingConstants>
-    def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<awt>, def _(_) {})
-  def attachContextMenu := <aui:swing.attachContextMenu>
-  def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
-  def makeJTextField := <swing:makeJTextField>
-  
-  def menuPresentKit {
-    to button(name :String, actionThunk) {
-      def component := <swing:makeJMenuItem>(name)
-      action(component, actionThunk)
-      return component
-    }
-  }
-  
-  def iconPresentKit {
-    to image(resource) {
-      return makeImageIcon(resource)
-    }
-  }
-  
-  def addStandardEventHandlers(component, object, outerContext) {
-    dragDropKit.setupLocalDragSource(component, thunk { object })
-    outerContext <- getHooks() <- get("addListeners") <- (component) # XXX this should not be deferred, but we have a cyclic dependency
-  
-    attachContextMenu(component, thunk {
-      def m := <swing:JPopupMenu>()
-      def menuContext := makePresentationContext(fn _,_,c {[c,[].asMap()]}, Ref.broken("no generic present"), [].asSet(), false, [].asMap(), menuPresentKit)
-      
-      when (gatherCommands(object)) -> doCommandMenu(commands) {
-        for command in commands {
-          m."add(Component)"(presentAMCommand(command, menuContext, object))
-        }
-  
-        m.addPopupMenuListener(outerContext.getHooks()["borderControlListener"])
-  
-        return m
-      } catch p {
-        <awt:Toolkit>.getDefaultToolkit().beep() # besides the tracelog
-        throw <- (p)
-        return m
-      }
-    })
-  }
-  
-  def presentKit {
-    /** XXX what does this name mean? */
-    to plabel(name :String, optIconPresenter, context, object, getDoubleClickCommand) {
-    
-      def iconContext := makePresentationContext(fn _,_,c {[c,[].asMap()]}, presentAsIcon, [].asSet(), false, [].asMap(), iconPresentKit)
-      def icon := if (optIconPresenter != null) {
-        iconContext.subPresentType(object, optIconPresenter, false)
-      } else { 
-        iconContext.subPresent(object, false)
-      }
-    
-      # XXX object arg shouldn't be present; instead the context should be asked to install these things
-      def label := makeJLabel(name, icon, swingConstants.getLEADING())
-      
-      addStandardEventHandlers(label, object, context)
-      
-      label.addMouseListener(def doubleClickListener {
-        to mouseReleased(e) { try {
-          if (e.getClickCount() == 2) {
-            def command := getDoubleClickCommand()
-            runToWindow(E.toString(command), command, label)
-          }
-        } catch p { throw <- (p) } }
-        match _ {}
-      })
-      
-      return label
-    }
-    
-    to button(name :String, actionThunk) {
-      def component := <swing:makeJButton>(name)
-      action(component, actionThunk)
-      return component
-    }
-
-    /** XXX this ought to not exist here */
-    to getObjectSelectorPresenter() { return makeObjectSelector }
-
-    to text(s :String) {
-      return makeJLabel(s)
-    }
-
-    to _textLineCommandField(handler) {
-      def field := makeJTextField()
-      field.addKeyListener(def enterKeyListener {
-        to keyPressed(e) :void { try {
-          if (e.getKeyCode() == VK_ENTER) {
-            handler <- (field.getText())
-            field.setText("")
-          }
-        } catch p { throw <- (p) } }
-        match _ {}
-      })
-      return field
-    }
-
-    #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
-    match [dn ? (["x" => 0, "y" => 1] =~ [(dn) => dir]|_), components] {
-      def box := <swing:makeBox>(dir)
-      for c in components { 
-        box."add(Component)"(c) 
-      }
-      box
-    }
-  }
-
-  def normalBorder := borderFactory.createEmptyBorder(2, 2, 2, 2)
-  def boundaryBorder := borderFactory.createRaisedBevelBorder()
-  def activeBorder := borderFactory.createBevelBorder(
-    <swing:border.BevelBorder>.getRAISED(),
-    <awt:Color>."run(float, float, float)"(0.7, 0.7, 1.0),
-    <awt:Color>."run(float, float, float)"(0.4, 0.4, 0.7))
-
-  def makeSwingBoundary(object, context, content) {
-    def container := JPanel`$content`
-  
-    addStandardEventHandlers(container, object, context)
-  
-  
-    var mouseover := [].asSet()
-    var active := false
-  
-    def updateBorder() {
-      container.setBorder(
-        if (active) { activeBorder } else if (mouseover.size() > 0) { boundaryBorder } else { normalBorder } )
-    }
-    updateBorder()
-  
-    
-    
-    def addListeners(c) {
-      c.addMouseListener(def mouseOverUpdateListener {
-      to mouseEntered(event) :void { try {
-        mouseover with= mouseOverUpdateListener
-        updateBorder()
-      } catch p { throw <- (p) } }
-      to mouseExited(event) :void { try {
-        mouseover without= mouseOverUpdateListener
-        updateBorder()
-      } catch p { throw <- (p) } }
-      match _ {}
-    })
-    }
-    addListeners(container)
-  
-    def borderControlListener { # XXX this needs renaming now
-      to popupMenuWillBecomeInvisible(e) { try { 
-        active := false
-        updateBorder()
-      } catch p { throw <- (p) } }
-      to popupMenuWillBecomeVisible(e) { try {
-        active := true
-        updateBorder()
-      } catch p { throw <- (p) } }
-      match msg {}
-    }
-  
-    return [container, [=> borderControlListener, => addListeners]]
-  }
-
-  def rootContext := makePresentationContext(makeSwingBoundary, presentInSwing, [].asSet(), true, Ref.broken("no hooks"), presentKit)
-
-  return def backend {
-    to getRootContext() { return rootContext }
-    to getPresentKit() { return presentKit }
-    /** XXX decide whether "Frame" name is to stay */
-    to openFrame(title, component, optRel) {
-      def frame := <swing:makeJFrame>(title)
-    
-      def sp := <swing:JScrollPane>()
-        #sp.setPreferredSize(<awt:Dimension>(320,320))
-        #sp.setVerticalScrollBarPolicy(<swing:ScrollPaneConstants>.getVERTICAL_SCROLLBAR_ALWAYS())
-      sp.getViewport()."add(Component)"(component)
-    
-      frame.setContentPane(sp)
-      frame.pack()
-      if (optRel != null) { 
-        frame.setLocationRelativeTo(optRel)
-      } else {
-        if (frame.__respondsTo("setLocationByPlatform", 1)) {
-          frame.setLocationByPlatform(true)
-        }
-      }
-      frame.show()
-      return frame
-    }
-  }
-}
 
 if (currentVat.getRunnerKind() != "awt") {
   interp.waitAtTop(currentVat.morphInto("awt"))
 }
-def backend := makeSwingBackend()
+def backend := <aui:swing.makeSwingBackend>(<awt>, <swing>, presentInSwing, presentAsIcon, auiCommon)
 
 # ------------------------------------------------------------------------------
 
-def presentCommandRun := <aui:present.presentCommandRun>
 bind presentInSwing := <aui:present.makeDefaultPresenter>(auiCommon)
-
-bind runToWindow(title, command, originC) {
-  backend.openFrame(title, 
-                    presentCommandRun(backend.getRootContext(), 
-                                      command.run()),
-                    originC)
-}
-
-bind presentAMCommand(command :CompleteCommand, context, selected) {
-  def [commandLabel, resultLabelTh] := switch (command) {
-    match s :SimpleMessageCommand ? (s.getRecipient() == selected) {
-      def verb := command.getVerb()
-      def arity := command.getArgs().size()
-      def more := false
-      [verb,
-       thunk { `$selected.$verb()` }]
-    }
-    match s :SimpleMessageCommand ? (s.getRecipient() == makeFlexArgMessageCommand && s.getVerb() == "empty" && s.getArgs() =~ [==selected, md :CommandMessageDesc]) {
-      def verb := md.getVerb()
-      def arity := md.getParams().size()
-      [verb + "." * (2 + arity),
-       thunk { `$selected.$verb/$arity` }]
-    }
-    match _ {
-      [def s := E.toQuote(command), thunk { s }]
-    }
-  }
-
-  def mi := context.kit().button(commandLabel, thunk {
-    runToWindow(resultLabelTh(), command, mi)
-  })
-
-  return mi
-}
-
 
 # ------------------------------------------------------------------------------
 
@@ -551,4 +288,4 @@ def example := [
 ]
 
 # disabled for now as the REPL incorporates this mostly
-# backend.openFrame("Toy", rootContext.subPresent(example, true), null) 
+backend.openFrame("Toy", backend.getRootContext().subPresent(example, true), null) 

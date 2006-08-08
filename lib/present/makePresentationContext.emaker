@@ -1,0 +1,31 @@
+# Copyright 2006 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+def toKey                    := <elib:tables.makeTraversalKey>
+
+def makePresentationContext(makePresentationBoundary, present, seen, quoting, hooks, kit) {
+  return def presentationContext {
+    to quoting() { return quoting }
+    to kit() { return kit }
+    to getHooks() { return hooks } # XXX in the ideal system this should not exist
+    
+    to subPresent(object, quoting) {
+      return presentationContext.subPresentType(object, present, quoting)
+    }
+    
+    to subPresentType(object, type, quoting) {
+      def key := toKey(object)
+      def hooks
+      def subC := makePresentationContext(makePresentationBoundary, present, seen.with(key), quoting, hooks, kit)
+      def [c, bind hooks] := makePresentationBoundary(object, subC, if (seen.contains(key)) {
+        present("CYCLE", subC)
+      } else {
+        type(object, subC)
+      })
+      return c
+    }
+  }
+}
