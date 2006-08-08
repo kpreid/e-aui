@@ -12,7 +12,6 @@ pragma.enable("anon-lambda")
 def <aui> := <import:org.cubik.cle.aui.*>
 
 def makeLamportSlot := <import:org.erights.e.elib.slot.makeLamportSlot>
-def File := <type:java.io.File>
 
 def Command                  := <aui:command.Command>
 def CompleteCommand          := <aui:command.CompleteCommand>
@@ -47,37 +46,16 @@ bind gatherCommands(object) :vow[List[Command]] {
   }
 }
 
+def presentDefault := <aui:present.makeDefaultPresenter>(auiCommon)
+
 # ------------------------------------------------------------------------------
 
 # "backend" name borrowed from McCLIM
 
-def presentInSwing
-def presentAsIcon
-
 if (currentVat.getRunnerKind() != "awt") {
   interp.waitAtTop(currentVat.morphInto("awt"))
 }
-def backend := <aui:swing.makeSwingBackend>(<awt>, <swing>, presentInSwing, presentAsIcon, auiCommon)
-
-# ------------------------------------------------------------------------------
-
-bind presentInSwing := <aui:present.makeDefaultPresenter>(auiCommon)
-
-# ------------------------------------------------------------------------------
-
-# Icons
-
-# XXX TODO: reestablish caching of icons. how can this be made compatible with context-specific presentation?
-bind presentAsIcon(object, context) {
-  def kit := context.kit()
-  return switch (object) {
-    match f :File {
-      f.isDirectory().pick(kit.image(<resource:com/skyhunter/capDesk/icons/folder.gif>), 
-                           kit.image(<resource:com/skyhunter/capDesk/icons/noLauncher.gif>))
-    }
-    match _ { kit.image(<resource:org/cubik/cle/aui/swing/item.gif>) }
-  }
-}
+def backend := <aui:swing.makeSwingBackend>(<awt>, <swing>, presentDefault, <aui:present.makeDefaultIconPresenter>(), auiCommon)
 
 # ------------------------------------------------------------------------------
 
