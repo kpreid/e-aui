@@ -1,3 +1,6 @@
+# Copyright 2006 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
 pragma.enable("easy-return")
 pragma.disable("explicit-result-guard")
 
