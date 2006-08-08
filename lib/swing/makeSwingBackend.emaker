@@ -8,22 +8,26 @@ pragma.enable("anon-lambda")
 
 def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
                        ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
+def <awt>                    := <import:java.awt.*>
+def <swing>                  := <import:javax.swing.*>
+
 
 def CompleteCommand          := <aui:command.CompleteCommand>
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
 def makePresentationContext  := <aui:present.makePresentationContext>
 def presentCommandRun        := <aui:present.presentCommandRun>
 
-def makeSwingBackend(<awt>, <swing>, defaultPresentGeneral, defaultPresentIcon, [=> makeFlexArgMessageCommand, => CommandMessageDesc, => SimpleMessageCommand, => gatherCommands] | _) {
+def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultPresentIcon, [=> makeFlexArgMessageCommand, => CommandMessageDesc, => SimpleMessageCommand, => gatherCommands] | _) {
   def backend
   def action := <aui:swing.action>
-  def awtDropTarget := <awt:dnd.makeDropTarget>
+  def awtDropTarget := <unsafeAwt:dnd.makeDropTarget>
   def borderFactory := <swing:makeBorderFactory>
+  def makeJFrame := <unsafeSwing:makeJFrame>
   def makeJLabel := <swing:makeJLabel>
   def makeImageIcon := <swing:makeImageIcon>
   def makeObjectSelector := <aui:swing.makeObjectSelectorAuthor>(awtDropTarget)
   def swingConstants := <swing:makeSwingConstants>
-    def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<awt>, def _(_) {})
+  def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<unsafeAwt>, def _(_) {})
   def attachContextMenu := <aui:swing.attachContextMenu>
   def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
   def makeJTextField := <swing:makeJTextField>
@@ -171,7 +175,8 @@ def makeSwingBackend(<awt>, <swing>, defaultPresentGeneral, defaultPresentIcon, 
   def normalBorder := borderFactory.createEmptyBorder(2, 2, 2, 2)
   def boundaryBorder := borderFactory.createRaisedBevelBorder()
   def activeBorder := borderFactory.createBevelBorder(
-    <swing:border.BevelBorder>.getRAISED(),
+    { #<swing:border.BevelBorder>.getRAISED() -- XXX erroneously unsafe
+      0 },
     <awt:Color>."run(float, float, float)"(0.7, 0.7, 1.0),
     <awt:Color>."run(float, float, float)"(0.4, 0.4, 0.7))
 
@@ -229,7 +234,7 @@ def makeSwingBackend(<awt>, <swing>, defaultPresentGeneral, defaultPresentIcon, 
     to getPresentKit() { return presentKit }
     /** XXX decide whether "Frame" name is to stay */
     to openFrame(title, component, optRel) {
-      def frame := <swing:makeJFrame>(title)
+      def frame := makeJFrame(title)
     
       def sp := <swing:JScrollPane>()
         #sp.setPreferredSize(<awt:Dimension>(320,320))
