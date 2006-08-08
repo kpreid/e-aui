@@ -1,0 +1,227 @@
+# Copyright 2006 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+pragma.enable("accumulator")
+pragma.enable("verb-curry")
+pragma.enable("easy-when")
+pragma.enable("anon-lambda")
+
+def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
+                       ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
+
+def <awt>                    := <import:java.awt.*>
+def <swing>                  := <import:javax.swing.*>
+def Command                  := <aui:command.Command>
+def CompleteCommand          := <aui:command.CompleteCommand>
+def FinalSlot                := <type:org.erights.e.elib.slot.FinalSlot>
+def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
+def Slot                     := <type:org.erights.e.elib.slot.Slot>
+def presentCommandRun        := <aui:present.presentCommandRun>
+def setupComponentReactor    := <aui:swing.setupComponentReactor>
+
+def textLimit := 60
+
+def presentGenericInSwing(object, context) {
+  def quoted := context.quoting()
+
+  def computeText() {
+    def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
+    return if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
+  }
+
+  def label := context.kit().plabel(computeText(), null, context, object, thunk {thunk {[null,null]}})
+
+  def update() { label.setText(computeText()) }
+  
+  if (!Ref.isResolved(object)) {
+    Ref.whenResolved(object, def done(_) :void {
+      update()
+    })
+  }
+  update()
+
+  label.addMouseListener(def mouseOverUpdateListener {
+    to mouseEntered(event) :void {
+      try {
+        update()
+      } catch problem {
+        throw <- (problem) # reach tracelog
+      }
+    }
+    match _ {}
+  })
+  
+  return label
+}
+
+def presentSwitching(promise, context, after) {
+  def placeholder := presentGenericInSwing(promise, context)
+
+  def hole := context.kit().x(placeholder)
+  
+  Ref.whenResolved(promise, def switchPresentation(_) {
+    #println(`resolved $promise`)
+    hole.remove(placeholder)
+    #println(`removed placeholder`)
+    hole."add(Component)"(after(promise, context))
+    #println(`replaced to $sp for $promise, components are`)
+    #println(hole.getComponents())
+    hole.revalidate()
+  })
+  
+  return hole
+}
+
+def presentTwine(object :Twine, context) {
+  # XXX we need some sort of mechanism for indicating when not to truncate a string
+  def t := if (context.quoting()) {E.toQuote(object)} else {E.toString(object)}
+  def short := if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
+  return context.kit().plabel(short, fn _,_ {null}, context, object, thunk {thunk {[null,null]}})
+}
+
+def presentListY(list, context) {
+  def box := E.call(context.kit(), "y", accum [] for item in list { _.with(context.subPresent(item, context.quoting())) })
+  return box
+}
+def makeGridBagTable := <aui:swing.makeGridBagTable>
+def presentMapY(map, context) {
+  def table := makeGridBagTable()
+  def tableC := table.getComponent()
+  def gbc := <awt:GridBagConstraints>
+  
+  var i := 0
+  for key => value in map { 
+    #println(`$key $value`)
+    def keyC := context.subPresent(key, context.quoting())
+    def valueC := context.subPresent(value, context.quoting())
+    tableC.add(
+        keyC,
+        gbc(
+          0, i, # x/y
+          1, 1,   # width/height
+          1, 1,   # weight
+          gbc.getEAST(), # anchor
+          gbc.getVERTICAL(),   # fill
+          <awt:Insets>(0, 0, 0, 0), # insets
+          0, 0    # ipad
+        )
+      )
+    tableC.add(
+        valueC,
+        gbc(
+          1, i, # x/y
+          1, 1,   # width/height
+          1, 1,   # weight
+          gbc.getWEST(), # anchor
+          gbc.getBOTH(),   # fill
+          <awt:Insets>(0, 0, 0, 0), # insets
+          0, 0    # ipad
+        )
+      )
+    table.addRow(key, [keyC, valueC]) 
+    i += 1
+  }
+  return tableC
+}
+
+def makeCommandUI(command :Command, editUI, context) {
+  def hole := JPanel``
+  hole.setLayout(<awt:FlowLayout>())
+  hole.setPreferredSize(<awt:Dimension>(320, 100))
+
+  def runButton := context.kit().button("Run", thunk {
+    hole.setPreferredSize(null)
+    hole."add(Component)"(presentCommandRun(context, command.run()))
+    hole.revalidate()
+  })
+  
+  # XXX support far commands?
+  def &available := command."&available"()
+  
+  def updateAvailable(available) {
+    runButton.setEnabled(available)
+  }
+  
+  if ((&available).__respondsTo("whenUpdated", 1)) {
+    runButton.setEnabled(false)
+    setupComponentReactor(runButton, &available, updateAvailable, null)
+  } else {
+    updateAvailable(available)
+  }
+
+  return JPanel`
+    $editUI.X
+    ${context.kit().x(JPanel``, runButton)}.X
+    $hole.Y
+  `
+}
+
+/** demo thing */
+def presentMakeFlexMapCommandInSwing(command, context) {
+  
+  def [kzs, vzs] := command.getArgZoSlots()
+  def ksel := context.subPresentType(kzs, context.kit().getObjectSelectorPresenter(), false)
+  def vsel := context.subPresentType(vzs, context.kit().getObjectSelectorPresenter(), false)
+
+  return makeCommandUI(command, JPanel`
+    ${context.kit().text("Key type: ")}   $ksel.X
+    ${context.kit().text("Value type: ")} $vsel.X
+  `, context)
+}
+
+def presentFAMCommandInSwing(command, context) {
+  def descs := command.getParams()
+
+  def selsC := <swing:Box>(1)
+  for i => zos in command.getArgZoSlots() { 
+    selsC."add(Component)"(JPanel`
+      ${context.subPresent(descs[i], false)} $\
+        ${context.subPresentType(zos, context.kit().getObjectSelectorPresenter(), true)}.X
+    `) 
+  }
+
+  def leftLabel := JPanel`${context.subPresent(command.getRecipient(), true)} ${context.kit().text(" <- ")} ${context.subPresent(command.getVerb(), false)} ${context.kit().text("(")}`
+
+  return makeCommandUI(command, JPanel`
+    $leftLabel $selsC.X ${context.kit().text(")")}
+  `, context)
+}
+
+def presentCompleteCommandInSwing(command, context) {
+  return makeCommandUI(command, JPanel``, context)
+}
+
+def makeDefaultPresenter([=> SimpleMessageCommand,
+                          => FlexArgMessageCommand] | _) {
+  return def defaultPresenter(object, context) {
+    return switch (object) {
+      match p ? (!Ref.isResolved(p)) {
+        presentSwitching(p, context, defaultPresenter) }
+      match x :Twine { presentTwine(x, context) }
+      match x :List  { presentListY(x, context) }
+      match x :Map   { presentMapY(x, context) }
+      match x :FinalSlot {
+        context.subPresent(x.getValue(), context.quoting()) }
+  
+      #match x :near ? x.__respondsTo("paintIcon", 4) { # XXX better solution needed -- Java interfaces should respond to something like actuallyDeclared to give a restrictive guard
+      #  context.kit().text(x) }
+        
+      # broken - not all lamports hold ZOMs
+      #match ls :near ? (ls.__getAllegedType().getFQName() =~ `org.erights.e.elib.slot.makeLamportSlot$$makeLamportSlot__C$$lamportSlot__@{_}__C`) { 
+      #  context.kit().getObjectSelectorPresenter()(ls, context) }
+      match c :FlexArgMessageCommand ? ([c.getRecipient(), c.getVerb(), c.getArgZoSlots().size()] == [<elib:tables.makeFlexMap>, "fromTypes", 2]) { 
+        presentMakeFlexMapCommandInSwing(object, context) }
+  
+      match c :FlexArgMessageCommand { 
+        presentFAMCommandInSwing(object, context) }
+      match c :SimpleMessageCommand { 
+        presentCompleteCommandInSwing(object, context) }
+  
+      match _ { 
+        presentGenericInSwing(object, context) }
+    }
+  }
+}

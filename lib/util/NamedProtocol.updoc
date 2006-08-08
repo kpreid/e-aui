@@ -1,0 +1,44 @@
+? def mnp := <import:org.cubik.cle.aui.util.makeNamedProtocol>
+# value: <makeNamedProtocol>
+
+? def np := mnp(interface x {to run() })
+? # value: x
+
+? def nq := mnp(interface x {to run() })
+# value: x
+
+? np == nq
+# value: false
+
+? Ref.isSelfless(np)
+# value: true
+
+? np.__optUncall()
+# value: [<makeNamedProtocol>, "run", ["", "__main$x__T", [], [], [
+#        to run() :void]]]
+
+? nq.__optUncall()
+# value: [<makeNamedProtocol>, "run", ["", "__main$x__T", [], [], [
+#        to run() :void]]]
+
+? Ref.isPassByCopy(np)
+# value: true
+
+? Ref.isPassByCopy(nq)
+# value: true
+
+? np == nq
+# value: false
+
+? def np := mnp(interface x { })
+# value: x
+
+? def nq := mnp(interface x { })
+# value: x
+
+? np == nq
+# value: true
+
+? np == mnp(interface y {})
+# value: false
+

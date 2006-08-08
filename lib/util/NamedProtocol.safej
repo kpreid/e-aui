@@ -1,0 +1,9 @@
+# Copyright 2002 Combex, Inc. under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+class(safe,
+      "org.cubik.cle.aui.util.NamedProtocol",
+      statics(method("run(Object)"),
+              method("run(String, String, ConstList, ConstList, ConstList)")),
+      methods(method("audit(Object, AuditWitness)"),
+              method("audit(Audition)")))

@@ -1,0 +1,52 @@
+# Copyright 2006 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+def zero := term`zero` # globalness hack
+def many := term`many`
+
+#interface Zero guards ZeroStamp {}
+#interface Many guards ManyStamp {}
+def Zero {
+  to coerce(specimen, ejector) {
+    if (specimen == zero) { 
+      return specimen
+    } else {
+      throw.eject(ejector, "not zero")
+    }
+  }
+}
+def Many {
+  to coerce(specimen, ejector) {
+    if (specimen == Many) { 
+      return specimen
+    } else {
+      throw.eject(ejector, "not many")
+    }
+  }
+}
+def One := <type:org.erights.e.elib.slot.FinalSlot>
+def one(value) { return &value }
+def ZOM extends any[Zero, One, Many] {
+  to get(valueType) {
+    return def ZOM1 {
+      to coerce(sp, ej) {
+        def zom := super.coerce(sp)
+        if (sp == Zero || sp == Many) {
+          return sp
+        } else {
+          return one(valueType.coerce(sp.getValue(), ej))
+        }
+      }
+    }
+  }
+}
+def ZO := any[Zero, One]
+#def zero implements ZeroStamp {}
+#def many implements ManyStamp {}
+
+[=> Zero, => One, => Many,
+ => zero, => one, => many,
+ => ZOM, => ZO]
