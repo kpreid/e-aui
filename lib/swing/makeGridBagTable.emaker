@@ -5,8 +5,8 @@ pragma.enable("easy-return")
 pragma.disable("explicit-result-guard")
 
 def makeGridBagTable() :any {
-  def tableContainer := <import:javax.swing.JPanel>(
-    def tableLayout := <import:java.awt.GridBagLayout>()
+  def tableContainer := <import:javax.swing.makeJPanel>(
+    def tableLayout := <import:java.awt.makeGridBagLayout>()
   )
   
   var rowComponents := [].asMap()

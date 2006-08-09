@@ -228,7 +228,7 @@ def seqEval := {
 
 def presentSeqEval(seqEval, context) {
   def box := context.kit().y(def filler := JPanel``)
-  filler.setPreferredSize(<awt:Dimension>(320,320))
+  filler.setPreferredSize(<awt:makeDimension>(320,320))
 
   box."add(Component)"(context.kit()._textLineCommandField(def handle(line) {
     # XXX needs cleanup.
@@ -250,7 +250,7 @@ backend.openFrame("Repl", backend.getRootContext().subPresentType(seqEval, prese
 
 #def cmd := makeFlexArgMessageCommand(def x := <elib:tables.makeFlexMap>, x.__getAllegedType().getMessageTypes()["fromTypes/2"], [makeLamportSlot(one(<type:java.lang.Object>)), makeLamportSlot(one(<type:java.lang.Object>))])
 
-def exampleButtonCommand := makeArglessMessageCommand(def tk := <awt:Toolkit>.getDefaultToolkit(), tk.__getAllegedType().getMessageTypes()["beep/0"])
+def exampleButtonCommand := makeArglessMessageCommand(def tk := <awt:makeToolkit>.getDefaultToolkit(), tk.__getAllegedType().getMessageTypes()["beep/0"])
 
 # meta.getState() 
 # cmd 

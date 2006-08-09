@@ -21,6 +21,11 @@ def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser
 def Slot                     := <type:org.erights.e.elib.slot.Slot>
 def presentCommandRun        := <aui:present.presentCommandRun>
 def setupComponentReactor    := <aui:swing.setupComponentReactor>
+def makeGridBagTable         := <aui:swing.makeGridBagTable>
+def gbc                      := <awt:makeGridBagConstraints>
+def makeInsets               := <awt:makeInsets>
+def makeBox                  := <swing:makeBox>
+def makeFlowLayout           := <awt:makeFlowLayout>
 
 def textLimit := 60
 
@@ -86,11 +91,10 @@ def presentListY(list, context) {
   def box := E.call(context.kit(), "y", accum [] for item in list { _.with(context.subPresent(item, context.quoting())) })
   return box
 }
-def makeGridBagTable := <aui:swing.makeGridBagTable>
+
 def presentMapY(map, context) {
   def table := makeGridBagTable()
   def tableC := table.getComponent()
-  def gbc := <awt:GridBagConstraints>
   
   var i := 0
   for key => value in map { 
@@ -105,7 +109,7 @@ def presentMapY(map, context) {
           1, 1,   # weight
           gbc.getEAST(), # anchor
           gbc.getVERTICAL(),   # fill
-          <awt:Insets>(0, 0, 0, 0), # insets
+          makeInsets(0, 0, 0, 0), # insets
           0, 0    # ipad
         )
       )
@@ -117,7 +121,7 @@ def presentMapY(map, context) {
           1, 1,   # weight
           gbc.getWEST(), # anchor
           gbc.getBOTH(),   # fill
-          <awt:Insets>(0, 0, 0, 0), # insets
+          makeInsets(0, 0, 0, 0), # insets
           0, 0    # ipad
         )
       )
@@ -129,8 +133,8 @@ def presentMapY(map, context) {
 
 def makeCommandUI(command :Command, editUI, context) {
   def hole := JPanel``
-  hole.setLayout(<awt:FlowLayout>())
-  hole.setPreferredSize(<awt:Dimension>(320, 100))
+  hole.setLayout(makeFlowLayout())
+  hole.setPreferredSize(<awt:makeDimension>(320, 100))
 
   def runButton := context.kit().button("Run", thunk {
     hole.setPreferredSize(null)
@@ -175,7 +179,7 @@ def presentMakeFlexMapCommandInSwing(command, context) {
 def presentFAMCommandInSwing(command, context) {
   def descs := command.getParams()
 
-  def selsC := <swing:Box>(1)
+  def selsC := makeBox(1)
   for i => zos in command.getArgZoSlots() { 
     selsC."add(Component)"(JPanel`
       ${context.subPresent(descs[i], false)} $\

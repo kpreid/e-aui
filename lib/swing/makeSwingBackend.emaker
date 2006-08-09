@@ -22,6 +22,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   def action := <aui:swing.action>
   def awtDropTarget := <unsafeAwt:dnd.makeDropTarget>
   def borderFactory := <swing:makeBorderFactory>
+  def makeColor := <awt:makeColor>
   def makeJFrame := <unsafeSwing:makeJFrame>
   def makeJLabel := <swing:makeJLabel>
   def makeImageIcon := <swing:makeImageIcon>
@@ -29,8 +30,10 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   def swingConstants := <swing:makeSwingConstants>
   def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<unsafeAwt>, def _(_) {})
   def attachContextMenu := <aui:swing.attachContextMenu>
-  def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
+  def VK_ENTER := <awt:event.makeKeyEvent>.getVK_ENTER()
   def makeJTextField := <swing:makeJTextField>
+  def makeJPopupMenu := <swing:makeJPopupMenu>
+  def toolkit := <unsafeAwt:makeToolkit>.getDefaultToolkit()
   
   def menuPresentKit {
     to button(name :String, actionThunk) {
@@ -87,7 +90,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     outerContext <- getHooks() <- get("addListeners") <- (component) # XXX this should not be deferred, but we have a cyclic dependency
   
     attachContextMenu(component, thunk {
-      def m := <swing:JPopupMenu>()
+      def m := makeJPopupMenu()
       def menuContext := makePresentationContext(fn _,_,c {[c,[].asMap()]}, Ref.broken("no generic present"), [].asSet(), false, [].asMap(), menuPresentKit)
       
       when (gatherCommands(object)) -> doCommandMenu(commands) {
@@ -99,7 +102,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   
         return m
       } catch p {
-        <awt:Toolkit>.getDefaultToolkit().beep() # besides the tracelog
+        toolkit.beep() # besides the tracelog
         throw <- (p)
         return m
       }
@@ -177,8 +180,8 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   def activeBorder := borderFactory.createBevelBorder(
     { #<swing:border.BevelBorder>.getRAISED() -- XXX erroneously unsafe
       0 },
-    <awt:Color>."run(float, float, float)"(0.7, 0.7, 1.0),
-    <awt:Color>."run(float, float, float)"(0.4, 0.4, 0.7))
+    makeColor."run(float, float, float)"(0.7, 0.7, 1.0),
+    makeColor."run(float, float, float)"(0.4, 0.4, 0.7))
 
   def makeSwingBoundary(object, context, content) {
     def container := JPanel`$content`
@@ -236,7 +239,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     to openFrame(title, component, optRel) {
       def frame := makeJFrame(title)
     
-      def sp := <swing:JScrollPane>()
+      def sp := <swing:makeJScrollPane>()
         #sp.setPreferredSize(<awt:Dimension>(320,320))
         #sp.setVerticalScrollBarPolicy(<swing:ScrollPaneConstants>.getVERTICAL_SCROLLBAR_ALWAYS())
       sp.getViewport()."add(Component)"(component)
