@@ -198,9 +198,158 @@ def presentCompleteCommandInSwing(command, context) {
   return makeCommandUI(command, JPanel``, context)
 }
 
+def ENode := <type:org.erights.e.elang.evm.ENode>
+def borderFactory := <swing:makeBorderFactory>
+def makeColor := <awt:makeColor>
+def blockBorder := borderFactory.createLineBorder(makeColor.getBlack())
+def presentENode(node, context) {
+  def kit := context.kit()
+  def subp(n) {
+    return context.subPresentType(n, presentENode, false)
+  }
+  def block(n) {
+    # XXX Swing-specific
+    def c := kit.x(n)
+    c.setBorder(blockBorder)
+    return c
+    #return kit.x(kit.text("{ "), subp(n), kit.text(" }"))
+  }
+    
+  return node.welcome(def pVisitor {
+    to visitAssignExpr(_, l, r) {
+        return kit.x(subp(l), kit.text(" := "), subp(r))
+    }
+    to visitCallExpr(_, r, v, a) {
+        return E.call(kit, "x", [subp(r), kit.text("."), context.subPresent(v, false), kit.text("(")] + accum [] for arg in a { _.with(subp(arg)) } + [kit.text(")")])
+    }
+    to visitCatchExpr(_, body, catchPatt, catchBody) {
+      return JPanel`${kit.text("try ")} ${block(subp(body))}.X.Y >
+                    ${JPanel``}.Y          V                     V
+                    ${kit.text("catch ")}  ${subp(catchPatt)} ${block(subp(catchBody))}.X.Y
+                    ${JPanel``}.Y          >                  V`
+    }
+    to visitDefineExpr(expr, pattern, _, _) {
+      if (expr.getOptEjectorExpr() != null) {
+        return kit.x(kit.text("def "), subp(pattern), kit.text(" exit "), subp(expr.getOptEjectorExpr()), kit.text(" := "), subp(expr.getRValue()))
+      } else {
+        return kit.x(kit.text("def "), subp(pattern), kit.text(" := "), subp(expr.getRValue()))
+      }
+    }
+    to visitEscapeExpr(_, ejPatt, body, catchPatt, catchBody) {
+      if (catchPatt != null) {
+        return JPanel`${kit.text("escape ")} ${subp(ejPatt)} ${block(subp(body))}.X.Y
+                      ${JPanel``}.Y          >               V
+                      ${kit.text("catch ")}  ${subp(catchPatt)} ${block(subp(catchBody))}.X.Y
+                      ${JPanel``}.Y          >                  V`
+      } else {
+        return kit.x(kit.text("escape "), subp(ejPatt), block(subp(body)))
+      }
+    }
+    to visitFinallyExpr(_, body, unwinder) {
+      return JPanel`${kit.text("try ")}      ${block(subp(body))}.X.Y
+                    ${JPanel``}.Y            V
+                    ${kit.text("finally ")}  ${block(subp(unwinder))}.X.Y
+                    ${JPanel``}.Y            V`
+    }
+    to visitIfExpr(_, test, then, els) {
+        return JPanel`${kit.text("if ")} ${subp(test)} ${block(subp(then))}.X.Y
+                      ${JPanel``}.Y          >         V
+                      ${kit.text("else ")}   >         ${block(subp(els))}.X.Y
+                      ${JPanel``}.Y          >         V`
+    }
+    to visitHideExpr(_, sub) {
+      return block(subp(sub))
+    }
+    to visitLiteralExpr(_, value) {
+      return context.subPresent(value, true)
+    }
+    to visitMetaContextExpr(_) {
+      return kit.text("meta.context()")
+    }
+    to visitMetaStateExpr(_) {
+      return kit.text("meta.getState()")
+    }
+    to visitNounExpr(_, noun) {
+      return presentTwine(noun, context)
+    }
+    to visitObjectExpr(_, docComment, qualifiedName, auditors, script) {
+      # XXX include docComment
+      # XXX presenting auditor exprs should be via presentListX[presentENode]
+      def audC := if (auditors.size() > 0) {
+        JPanel`${kit.text(" implements ")} ${context.subPresent(auditors, false)}`
+      } else { JPanel`` }
+      
+      return JPanel`${kit.text("def ")} ${context.subPresent(qualifiedName, true)} $audC.X
+                    ${JPanel``}.Y ${subp(script)}.X.Y`
+    }
+    to visitSeqExpr(_, subs) {
+      return E.call(kit, "y", accum [] for sub in subs { _.with(subp(sub)) })
+    }
+    to visitSlotExpr(_, nounExpr) {
+      return kit.x(kit.text("&"), subp(nounExpr))
+    }
+    to visitCdrPattern(_, list, rest) {
+      return kit.x(subp(list), kit.text(" + "), subp(rest))
+    }
+    to visitFinalPattern(_, expr, optGuard) {
+      if (optGuard != null) {
+        return kit.x(subp(expr), kit.text(" :"), subp(optGuard))
+      } else {
+        return presentENode(expr, context)
+      }
+    }
+    to visitIgnorePattern(_) {
+      return kit.text("_")
+    }
+    to visitListPattern(_, subs) {
+      return E.call(kit, "x", [kit.text("[")] + accum [] for sub in subs { _.with(subp(sub)) } + [kit.text("]")])
+    }
+    to visitSlotPattern(_, expr, optGuard) {
+      if (optGuard != null) {
+        return kit.x(kit.text("&"), subp(expr), kit.text(" :"), subp(optGuard))
+      } else {
+        return kit.x(kit.text("&"), subp(expr))
+      }
+    }
+    to visitSuchThatPattern(_, pattern, test) {
+      return kit.x(subp(pattern), kit.text(" ? "), subp(test))
+    }
+    to visitVarPattern(_, expr, optGuard) {
+      if (optGuard != null) {
+        return kit.x(kit.text("var "), subp(expr), kit.text(" :"), subp(optGuard))
+      } else {
+        return kit.x(kit.text("var "), subp(expr))
+      }
+    }
+    to visitEScript(_, optMethods, matchers) {
+      if (optMethods != null) {
+        return block(E.call(kit, "y", accum [] for sub in optMethods + matchers { _.with(subp(sub)) }))
+      } else if (matchers =~ [plumber]) {
+        return subp(plumber)
+      } else {
+        presentGenericInSwing(Ref.broken("confused EScript"))
+      }
+    }
+    to visitEMethod(_, docComment, verb, params, optResultGuard, body) {
+      # XXX include docComment
+      return JPanel`${kit.text("method ")} ${context.subPresent(verb, false)} ${context.subPresent(params, false)}.X ${if (optResultGuard != null) { subp(optResultGuard) } else {JPanel``} }
+                    ${JPanel``}.Y ${block(subp(body))}.X.Y`
+    }
+    to visitEMatcher(_, pattern, body) {
+      # XXX include docComment
+      return JPanel`${kit.text("match ")} ${subp(pattern)}.X
+                    ${JPanel``}.Y         ${block(subp(body))}.X.Y`
+    }
+    match _ {
+      return presentGenericInSwing(node, context)
+    }
+  })
+}
+
 def makeDefaultPresenter([=> SimpleMessageCommand,
                           => FlexArgMessageCommand] | _) {
   return def defaultPresenter(object, context) {
+    # XXX these tests really shouldn't be coercing in some cases
     return switch (object) {
       match p ? (!Ref.isResolved(p)) {
         presentSwitching(p, context, defaultPresenter) }
@@ -223,6 +372,9 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
         presentFAMCommandInSwing(object, context) }
       match c :SimpleMessageCommand { 
         presentCompleteCommandInSwing(object, context) }
+  
+      match n :ENode {
+        presentENode(n, context) }
   
       match _ { 
         presentGenericInSwing(object, context) }

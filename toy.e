@@ -265,5 +265,25 @@ def example := [
   => safeScope,
 ]
 
-# disabled for now as the REPL incorporates this mostly
-backend.openFrame("Toy", backend.getRootContext().subPresent(example, true), null) 
+#def expr := e`
+#  pragma.enable("easy-return")
+#  pragma.disable("explicit-result-guard")
+#  def object extends 1.0 implements Example {
+#    to makeCounter() {
+#      return { var x := 0; [thunk { x += 1 }, &x] }
+#    }
+#    to "exit"() {
+#      try { throw("biff") } catch p { throw(p) } finally { notice('q') }
+#    }
+#    to patterns() {
+#      def [_, a, var b, &c, d] + g := data # , via (e) f
+#    }
+#    to "meta"() {
+#      [meta.getState(),
+#       meta.context()]
+#    }
+#    to plumbing() { def drain match water { flush(water) } }
+#  }
+#`
+
+#backend.openFrame("Toy", backend.getRootContext().subPresent(expr, true), null) 
