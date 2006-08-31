@@ -15,7 +15,8 @@ def <awt>                    := <import:java.awt.*>
 def <swing>                  := <import:javax.swing.*>
 def action                   := <aui:swing.action>
 
-def borderFactory := <swing:makeBorderFactory>
+def borderFactory            := <swing:makeBorderFactory>
+def makeDataFlavor           := <awt:datatransfer.makeDataFlavor>
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
 def setupComponentReactor    := <aui:swing.setupComponentReactor>
 def toKey                    := <elib:tables.makeTraversalKey>
@@ -25,6 +26,8 @@ def [=> one, => zero] | _    := <aui:data.zeroOneMany>
 def markerIcon := <swing:makeImageIcon>(<resource:org/cubik/cle/aui/swing/slot-target.gif>)
 
 def makeObjectSelectorAuthor(awtDropTarget) :any {
+  def setupDrop := <import:com.skyhunter.e.awt.dnd.setupDropFuncAuthor> \
+                     (awtDropTarget, fn _ {})
   def makeObjectSelector(zoSlot, context) :any {
     
     def hole := JPanel``
@@ -43,14 +46,11 @@ def makeObjectSelectorAuthor(awtDropTarget) :any {
     setupComponentReactor(hole, zoSlot, updateSel, null)
       
     def prepDrop(textPane, reactor) :void {
-      # code copied and modified from esrc/caplets/capEdit/capEdit.caplet
-      def makeDataFlavor := <import:java.awt.datatransfer.makeDataFlavor>
-      def setupDrop := <import:com.skyhunter.e.awt.dnd.setupDropFuncAuthor> (
-          awtDropTarget, fn _ {})
+      # code copied and modified from esrc/caplets/capEdit/capEdit.caplet. XXX make it nicer in using Java's D&D correctly
       setupDrop(textPane, [
-          makeDataFlavor(makeDataFlavor.getJavaJVMLocalObjectMimeType() +
-                         "; class=java.awt.dnd.DropTargetEvent") =>
-            reactor])
+        makeDataFlavor(makeDataFlavor.getJavaJVMLocalObjectMimeType() +
+                       "; class=java.awt.dnd.DropTargetEvent") =>
+          reactor])
     }
   
     def marker := makeJLabel("")
