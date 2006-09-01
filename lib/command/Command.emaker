@@ -12,6 +12,11 @@ def Slot                     := <type:org.erights.e.elib.slot.Slot>
 # XXX MessageDesc info disabled because they are not Selfless under E-on-Java and this interface must be the same across multiple imports
 
 <aui:util.makeNamedProtocol>(interface Command {
-  #to snapshot(partialEj) # :CompleteCommand -- circular reference
-  #to "&available"() :Slot
+  #to run()
+  #to run(_)
+  #to run(_, _)
+  #to run(_, _, _) # -- commands have a single run method with some arity
+    
+  #/** Return an EverReporter indicating whether the command may be run with the specified args. */
+  #to "&available"(args) :Slot
 })

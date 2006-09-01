@@ -12,12 +12,20 @@ def <awt>                    := <import:java.awt.*>
 def <swing>                  := <import:javax.swing.*>
 
 
-def CompleteCommand          := <aui:command.CompleteCommand>
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
 def makePresentationContext  := <aui:present.makePresentationContext>
 def presentCommandRun        := <aui:present.presentCommandRun>
 
-def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultPresentIcon, [=> makeFlexArgMessageCommand, => CommandMessageDesc, => SimpleMessageCommand, => gatherCommands] | _) {
+def dumpComponents(c, out) {
+  out.lnPrint(c.__getAllegedType())
+  def nest := out.indent()
+  for d in c.getComponents() {
+    dumpComponents(d, nest)
+  }
+  nest.close()
+}
+
+def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultPresentIcon, [=> makeFlexArgCommand, => CommandMessageDesc, => SimpleMessageCommand, => gatherCommands, => CompleteCommand] | _, stdout) {
   def backend
   def action := <aui:swing.action>
   def awtDropTarget := <unsafeAwt:dnd.makeDropTarget>
@@ -59,15 +67,19 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   
   # XXX this is generic and doesn't belong in the backend
   def presentAMCommand(command :CompleteCommand, context, selected) {
-    def [commandLabel, resultLabelTh] := switch (command) {
-      match s :SimpleMessageCommand ? (s.getRecipient() == selected) {
-        def verb := command.getVerb()
-        def arity := command.getArgs().size()
-        def more := false
+    def [commandLabel, resultLabelTh] := switch ([command.getCommand(), command.getArgs()]) {
+      match [sc :SimpleMessageCommand ? (sc.getRecipient() == selected), []] {
+        def verb := sc.getVerb()
         [verb,
          thunk { `$selected.$verb()` }]
       }
-      match s :SimpleMessageCommand ? (s.getRecipient() == makeFlexArgMessageCommand && s.getVerb() == "empty" && s.getArgs() =~ [==selected, md :CommandMessageDesc]) {
+      match [subCmd, [==selected]] {
+        [E.toQuote(subCmd),
+         thunk { `$subCmd($selected)` }]
+      }
+      match [makeCmd :SimpleMessageCommand ? (makeCmd.getRecipient() == makeFlexArgCommand && makeCmd.getMessageDesc().getVerb() == "empty"), [subCmd :SimpleMessageCommand]] {
+        # XXX present subCmd instead?
+        def md := subCmd.getMessageDesc()
         def verb := md.getVerb()
         def arity := md.getParams().size()
         [verb + "." * (2 + arity),
@@ -205,6 +217,10 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
       to mouseEntered(event) :void { try {
         mouseover with= mouseOverUpdateListener
         updateBorder()
+        if (false) {
+          dumpComponents(c, stdout)
+          stdout.println()
+        }
       } catch p { throw <- (p) } }
       to mouseExited(event) :void { try {
         mouseover without= mouseOverUpdateListener

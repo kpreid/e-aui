@@ -19,7 +19,7 @@ def makeStoneCast := <import:org.erights.e.facet.makeStoneCast>
 def whenever := <elib:slot.whenever>
 
 def Command                  := <aui:command.Command>
-def CompleteCommand          := <aui:command.CompleteCommand>
+def messageDescForCommand    := <aui:command.messageDescForCommand>
 
 def [=> Zero, => One, => Many,
      => zero, => one, => many,
@@ -45,64 +45,114 @@ def makeZeroSlots(params) {
 }
 
 interface SimpleMessageCommand guards SimpleMessageCommandStamp {}
-def makeSimpleMessageCommand(recipient :any, verb :any, args :List[any]) {
-  return def simpleMessageCommand implements Command, CompleteCommand, SimpleMessageCommandStamp {
-    to getRecipient() { return recipient }
-    to getVerb() { return verb }
-    to getArgs() { return args }
-    to "&available"() { return &true }
-    to snapshot() { return simpleMessageCommand }
-    to run() { return [E.send(recipient, verb, args), null] }
+def makeSimpleMessageCommand {
+  to run(recipient :any, messageDesc :CommandMessageDesc) {
+    def arity := messageDesc.getParams().size()
+    def Presenter := any # XXX restrict
+    return def simpleMessageCommand \
+        implements Command, SimpleMessageCommandStamp {
+      to __printOn(out :TextWriter) {
+        out.quote(recipient)
+        out.write(" <- ")
+        out.print(messageDesc.getVerb())
+      }
+      
+      to getRecipient() { return recipient }
+      to getMessageDesc() { return messageDesc }
+      to getVerb() { return messageDesc.getVerb() }
+      
+      # XXX should &available check compatibility of args? should run coerce?
+      to "&available"(_) { return &true }
+      
+      match [=="__getAllegedType", []] {
+        __makeProtocolDesc("", "_", [], [], 
+          [__makeMessageDesc(messageDesc.getDocComment(), 
+                             "run", 
+                             messageDesc.getParams(),
+                             Tuple[if (messageDesc.getOptResultGuard() =~ g :notNull) {g} else {any}, nullOk[Presenter]])])
+      }
+      match [=="__respondsTo", [=="run", queryArity]] {
+        queryArity == arity
+      }
+      match [`run`, args ? (args.size() == arity)] { 
+        [E.send(recipient, messageDesc.getVerb(), args), null]
+      }
+      
+      match msg { throw(`No such method: $msg`) }
+    }
+  }
+  to extract(r :any, v :String, a :int) {
+    return makeSimpleMessageCommand(r, r.__getAllegedType().getMessageTypes()[`$v/$a`])
   }
 }
 
-interface FlexArgMessageCommand guards FlexArgMessageCommandStamp {}
-def makeFlexArgMessageCommand {
-  to run(recipient :any, messageDesc :CommandMessageDesc, argZoSlots :List) {
-    require(messageDesc.getParams().size() == argZoSlots.size())
-    
-    def &available := whenever(argZoSlots, thunk {
-      escape e {
-        for slot in argZoSlots { if (slot.getValue() !~ o :One) { e(false) } }
-        true
+interface CompleteCommand guards CompleteCommandStamp {}
+def makeCompleteCommand {
+  to run(subCommand :Command, args :List) {
+    return def completeCommand implements Command, CompleteCommandStamp {
+      to getCommand() { return subCommand }
+      to getArgs() { return args }
+      to run() {
+        return E.call(subCommand, "run", args)
       }
-    })
+      to "&available"([]) { return subCommand."&available"(args) }
+    }
+  }
+}
+
+interface FlexArgCommand guards FlexArgCommandStamp {}
+def makeFlexArgCommand {
+  to run(subCommand :Command, argZoSlots :List) {
+    #require(subCommand.__respondsTo("run", argZoSlots.size())
     
-    return def flexArgMessageCommand implements Command, FlexArgMessageCommandStamp {
-      to getRecipient() { return recipient }
-      to getVerb() { return messageDesc.getVerb() }
-      to getParams() { return messageDesc.getParams() }
+    def availableSlot
+    
+    def flexArgCommand implements Command, FlexArgCommandStamp {
+      to getCommand() { return subCommand }
       to getArgZoSlots() { return argZoSlots }
       to run() {
-        return flexArgMessageCommand.snapshot(null).run()
+        return flexArgCommand.snapshot(null).run()
       }
-      to "&available"() { return &available }
+      to "&available"([]) { return availableSlot }
       to snapshot(partialEj) {
-        return makeSimpleMessageCommand(recipient, messageDesc.getVerb(), accum [] for s in argZoSlots { _.with(
+        return makeCompleteCommand(subCommand, accum [] for s in argZoSlots { _.with(
           switch (s.getValue()) {
             match one :One { one.getValue() }
             match _        { throw.eject(partialEj, "incomplete command") }
           }) })
       }
     }
+
+    bind availableSlot := whenever.dynamic(argZoSlots, thunk {
+      escape ret {
+        def &sub := flexArgCommand \
+                      .snapshot(fn _ { ret([false, []]) }) \
+                      ."&available"([])
+        [sub, [&sub]]
+      }
+    })
+    
+    return flexArgCommand
   }
-  to empty(r, d :CommandMessageDesc) {
-    return makeFlexArgMessageCommand(r, d, makeZeroSlots(d.getParams()))
+  to empty(c) {
+    return makeFlexArgCommand(c, makeZeroSlots(messageDescForCommand(c).getParams()))
   }
 }
 
 def makeArglessMessageCommand(recipient :any, messageDesc :CommandMessageDesc) {
   return if (messageDesc.getParams().size() > 0) {
-    makeSimpleMessageCommand(makeFlexArgMessageCommand, "empty", [recipient, messageDesc])
+    makeCompleteCommand(makeSimpleMessageCommand.extract(makeFlexArgCommand, "empty", 1), [makeSimpleMessageCommand(recipient, messageDesc)])
   } else {
-    makeSimpleMessageCommand(recipient, messageDesc.getVerb(), [])
+    makeCompleteCommand(makeSimpleMessageCommand(recipient, messageDesc), [])
   }
 }
 
 [=> SimpleMessageCommand,
  => makeSimpleMessageCommand,
- => FlexArgMessageCommand,
- => makeFlexArgMessageCommand,
+ => CompleteCommand,
+ => makeCompleteCommand,
+ => FlexArgCommand,
+ => makeFlexArgCommand,
  => makeArglessMessageCommand,
  => CommandMessageDesc,
 ]

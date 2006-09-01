@@ -15,7 +15,7 @@ def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].sp
 def <awt>                    := <import:java.awt.*>
 def <swing>                  := <import:javax.swing.*>
 def Command                  := <aui:command.Command>
-def CompleteCommand          := <aui:command.CompleteCommand>
+def messageDescForCommand    := <aui:command.messageDescForCommand>
 def FinalSlot                := <type:org.erights.e.elib.slot.FinalSlot>
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
 def Slot                     := <type:org.erights.e.elib.slot.Slot>
@@ -68,13 +68,19 @@ def presentSwitching(promise, context, after) {
   def hole := context.kit().x(placeholder)
   
   Ref.whenResolved(promise, def switchPresentation(_) {
-    #println(`resolved $promise`)
-    hole.remove(placeholder)
-    #println(`removed placeholder`)
-    hole."add(Component)"(after(promise, context))
-    #println(`replaced to $sp for $promise, components are`)
-    #println(hole.getComponents())
-    hole.revalidate()
+    try {
+      #throw <- (`resolved $promise`)
+      hole.remove(placeholder)
+      #throw <- (`removed placeholder, going to use $after`)
+      def sp := after(promise, context) :notNull
+      #throw <- (`about to add $sp for $promise, computed by $after`)
+      hole."add(Component)"(sp)
+      #throw <- (`replaced to $sp for $promise, components are`)
+      #throw <- (`${hole.getComponents()}`)
+      hole.revalidate()
+    } catch p {
+      throw <- (p)
+    }
   })
   
   return hole
@@ -131,7 +137,8 @@ def presentMapY(map, context) {
   return tableC
 }
 
-def makeCommandUI(command :Command, editUI, context) {
+def makeCompleteCommandUI(command :Command, editUI, context) {
+  # require(messageDescForCommand(command).getParams().size() == 0)
   def hole := JPanel``
   hole.setLayout(makeFlowLayout())
   hole.setPreferredSize(<awt:makeDimension>(320, 100))
@@ -143,7 +150,7 @@ def makeCommandUI(command :Command, editUI, context) {
   })
   
   # XXX support far commands?
-  def &available := command."&available"()
+  def &available := command."&available"([])
   
   def updateAvailable(available) {
     runButton.setEnabled(available)
@@ -170,32 +177,41 @@ def presentMakeFlexMapCommandInSwing(command, context) {
   def ksel := context.subPresentType(kzs, context.kit().getObjectSelectorPresenter(), false)
   def vsel := context.subPresentType(vzs, context.kit().getObjectSelectorPresenter(), false)
 
-  return makeCommandUI(command, JPanel`
+  return makeCompleteCommandUI(command, JPanel`
     ${context.kit().text("Key type: ")}   $ksel.X
     ${context.kit().text("Value type: ")} $vsel.X
   `, context)
 }
 
-def presentFAMCommandInSwing(command, context) {
-  def descs := command.getParams()
+def presentFACommandInSwing(command, context) {
+  def paramDescs := messageDescForCommand(command.getCommand()).getParams()
 
   def selsC := makeBox(1)
   for i => zos in command.getArgZoSlots() { 
     selsC."add(Component)"(JPanel`
-      ${context.subPresent(descs[i], false)} $\
-        ${context.subPresentType(zos, context.kit().getObjectSelectorPresenter(), true)}.X
+      ${context.subPresent(paramDescs[i].getName(), false)} $\
+        ${context.subPresentType(zos, context.kit().getObjectSelectorPresenter(), true)}.X $\
+          ${context.subPresent(zos.valueType().valueType(), false)}
     `) 
   }
 
-  def leftLabel := JPanel`${context.subPresent(command.getRecipient(), true)} ${context.kit().text(" <- ")} ${context.subPresent(command.getVerb(), false)} ${context.kit().text("(")}`
+  def leftLabel := JPanel`${context.subPresent(command.getCommand(), true)}.X ${context.kit().text("(")}`
 
-  return makeCommandUI(command, JPanel`
+  return makeCompleteCommandUI(command, JPanel`
     $leftLabel $selsC.X ${context.kit().text(")")}
   `, context)
 }
 
+def presentSimpleMessageCommand(command, context) {
+  # XXX should be able to present as a button by default, but do this when presented in the context of a flex-arg command template
+  def kit := context.kit()
+  return kit.x(context.subPresent(command.getRecipient(), true),
+               kit.text(" <- "),
+               context.subPresent(command.getVerb(), false))
+}
+
 def presentCompleteCommandInSwing(command, context) {
-  return makeCommandUI(command, JPanel``, context)
+  return makeCompleteCommandUI(command, JPanel``, context)
 }
 
 def ENode := <type:org.erights.e.elang.evm.ENode>
@@ -347,7 +363,7 @@ def presentENode(node, context) {
 }
 
 def makeDefaultPresenter([=> SimpleMessageCommand,
-                          => FlexArgMessageCommand] | _) {
+                          => FlexArgCommand] | _) {
   return def defaultPresenter(object, context) {
     # XXX these tests really shouldn't be coercing in some cases
     return switch (object) {
@@ -365,12 +381,16 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
       # broken - not all lamports hold ZOMs
       #match ls :near ? (ls.__getAllegedType().getFQName() =~ `org.erights.e.elib.slot.makeLamportSlot$$makeLamportSlot__C$$lamportSlot__@{_}__C`) { 
       #  context.kit().getObjectSelectorPresenter()(ls, context) }
-      match c :FlexArgMessageCommand ? ([c.getRecipient(), c.getVerb(), c.getArgZoSlots().size()] == [<elib:tables.makeFlexMap>, "fromTypes", 2]) { 
-        presentMakeFlexMapCommandInSwing(object, context) }
+      
+      # XXX reenable this
+      #match c :FlexArgMessageCommand ? ([c.getRecipient(), c.getVerb(), c.getArgZoSlots().size()] == [<elib:tables.makeFlexMap>, "fromTypes", 2]) { 
+      #  presentMakeFlexMapCommandInSwing(object, context) }
   
-      match c :FlexArgMessageCommand { 
-        presentFAMCommandInSwing(object, context) }
       match c :SimpleMessageCommand { 
+        presentSimpleMessageCommand(object, context) }
+      match c :FlexArgCommand { 
+        presentFACommandInSwing(object, context) }
+      match c :Command ? c.__respondsTo("run", 0) { 
         presentCompleteCommandInSwing(object, context) }
   
       match n :ENode {

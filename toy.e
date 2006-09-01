@@ -14,13 +14,13 @@ def <aui> := <import:org.cubik.cle.aui.*>
 def makeLamportSlot := <import:org.erights.e.elib.slot.makeLamportSlot>
 
 def Command                  := <aui:command.Command>
-def CompleteCommand          := <aui:command.CompleteCommand>
 def gatherCommands
 
 def [=> SimpleMessageCommand,
      => makeSimpleMessageCommand,
-     => FlexArgMessageCommand,
-     => makeFlexArgMessageCommand,
+     => makeCompleteCommand,
+     => FlexArgCommand,
+     => makeFlexArgCommand,
      => makeArglessMessageCommand,
      => CommandMessageDesc,
      => Zero, => One, => Many,
@@ -31,13 +31,12 @@ def [=> SimpleMessageCommand,
                     | [=> gatherCommands]
 
 
-bind gatherCommands(object) :vow[List[Command]] {
-  # XXX we need general architecture for command templates filled in with a single object, and presenting them
+def openInSeparateWindow extends makeSimpleMessageCommand.extract(__identityFunc, "run", 1) implements Command {}
 
-  # XXX clean this up
-  def openInSeparateWindow extends makeSimpleMessageCommand(__identityFunc, "run", [object]) implements Command, CompleteCommand {}
+bind gatherCommands(object) :vow[List[Command]] {
+  # XXX we need general architecture for collecting 1-arg commands and filling them into the list
  
-  def baseCommands := [openInSeparateWindow]
+  def baseCommands := [makeCompleteCommand(openInSeparateWindow, [object])]
  
   return when (object <- __getAllegedType()) -> _(allegedType) {
     return accum baseCommands for desc ? (desc.getVerb().indexOf1("()"[0]) == -1) in allegedType.getMessageTypes() {
@@ -55,7 +54,7 @@ def presentDefault := <aui:present.makeDefaultPresenter>(auiCommon)
 if (currentVat.getRunnerKind() != "awt") {
   interp.waitAtTop(currentVat.morphInto("awt"))
 }
-def backend := <aui:swing.makeSwingBackend>(<awt>, <swing>, presentDefault, <aui:present.makeDefaultIconPresenter>(), auiCommon)
+def backend := <aui:swing.makeSwingBackend>(<awt>, <swing>, presentDefault, <aui:present.makeDefaultIconPresenter>(), auiCommon, stdout)
 
 # ------------------------------------------------------------------------------
 
@@ -194,17 +193,13 @@ def presentDirectory(dir, context) {
   return container
 }
 
-interface OpenCommand guards OpenCommandStamp {}
-bind makeOpenCommand(file) {
-  return def openCommand implements Command, CompleteCommand, OpenCommandStamp {
-    to "&available"() { return &true }
-    to snapshot() { return openCommand }
-    to run() { 
-      return if (file.isDirectory()) {
-        [file, presentDirectory]
-      } else {
-        [file, presentCaplet(<file:/Stuff/e/caplets/capEdit/capEdit.caplet>)]
-      }
+def openCommand implements Command {
+  to "&available"([_]) { return &true }
+  to run(file) { 
+    return if (file.isDirectory()) {
+      [file, presentDirectory]
+    } else {
+      [file, presentCaplet(<file:/Stuff/e/caplets/capEdit/capEdit.caplet>)]
     }
   }
 }
