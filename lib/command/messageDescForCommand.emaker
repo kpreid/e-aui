@@ -1,0 +1,37 @@
+# Copyright 2006 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+pragma.enable("accumulator")
+
+def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
+                       ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
+
+def Command := <aui:command.Command>
+
+def maximum {
+  to getValue() { throw("No maximum of 0 values") }
+  to with(key, value) {
+    return def maximum1 {
+      to getValue() { return value }
+      to with(nextKey, nextValue) {
+        if (nextKey > key) {
+          return maximum.with(nextKey, nextValue)
+        } else {
+          return maximum1
+        }
+      }
+    }
+  }
+}
+
+/** Find the MessageDesc describing a command's run message. */
+def messageDescForCommand(c :Command) {
+  def mts := c.__getAllegedType().getMessageTypes()
+  return accum maximum for md ? (md.getVerb() == "run") in mts { 
+    _.with(md.getParams().size(), md)
+  }.getValue()
+}
+
