@@ -72,7 +72,11 @@ def presentSwitching(promise, context, after) {
       #throw <- (`resolved $promise`)
       hole.remove(placeholder)
       #throw <- (`removed placeholder, going to use $after`)
-      def sp := after(promise, context) :notNull
+      def sp := try { # XXX this is the same structure as in presentationContext.subPresentType
+        after(promise, context) :notNull
+      } catch problem {
+        context.kit().failedPresent(promise, problem)
+      }
       #throw <- (`about to add $sp for $promise, computed by $after`)
       hole."add(Component)"(sp)
       #throw <- (`replaced to $sp for $promise, components are`)

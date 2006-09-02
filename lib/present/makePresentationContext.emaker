@@ -4,9 +4,12 @@
 pragma.enable("easy-return")
 pragma.disable("explicit-result-guard")
 
+pragma.enable("anon-lambda")
+
 def toKey                    := <elib:tables.makeTraversalKey>
 
 def makePresentationContext(makePresentationBoundary, present, seen, quoting, hooks, kit) {
+
   return def presentationContext {
     to quoting() { return quoting }
     to kit() { return kit }
@@ -17,13 +20,17 @@ def makePresentationContext(makePresentationBoundary, present, seen, quoting, ho
     }
     
     to subPresentType(object, type, quoting) {
+      def handleFailure(f) {
+        return try { f() } catch problem { kit.failedPresent(object, problem) }
+      }
+    
       def key := toKey(object)
       def hooks
       def subC := makePresentationContext(makePresentationBoundary, present, seen.with(key), quoting, hooks, kit)
       def [c, bind hooks] := makePresentationBoundary(object, subC, if (seen.contains(key)) {
-        present("CYCLE", subC)
+        handleFailure(fn { present("CYCLE", subC) })
       } else {
-        type(object, subC)
+        handleFailure(fn { type(object, subC) })
       })
       return c
     }

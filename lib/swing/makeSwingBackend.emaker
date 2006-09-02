@@ -122,6 +122,15 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   }
   
   def presentKit {
+    to failedPresent(object, problem) {
+      # XXX this probably should not be in the kit at all, but a private provision to the presentation context
+      # XXX need to decide on a presentation for broken refs, that is distinct from this
+      # XXX make this look more internal-errorish. cf Squeak morph-drawing-error-morph
+      def label := presentKit.text(`Presenter: $problem`)
+      label.setBorder(borderFactory.createLineBorder(makeColor.getRed()))
+      return label
+    }
+  
     /** XXX what does this name mean? */
     to plabel(name :String, optIconPresenter, context, object, getDoubleClickCommand) {
     
