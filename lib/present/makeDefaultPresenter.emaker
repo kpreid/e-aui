@@ -20,6 +20,7 @@ def FinalSlot                := <type:org.erights.e.elib.slot.FinalSlot>
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
 def Slot                     := <type:org.erights.e.elib.slot.Slot>
 def presentCommandRun        := <aui:present.presentCommandRun>
+def presentEverReporter      := <aui:present.presentEverReporter>
 def setupComponentReactor    := <aui:swing.setupComponentReactor>
 def makeGridBagTable         := <aui:swing.makeGridBagTable>
 def gbc                      := <awt:makeGridBagConstraints>
@@ -378,6 +379,10 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
       match x :Map   { presentMapY(x, context) }
       match x :FinalSlot {
         context.subPresent(x.getValue(), context.quoting()) }
+
+      match s ? s.__respondsTo("whenUpdated", 2) { 
+        # XXX should have a better way to discriminate
+        presentEverReporter(s, context) }
   
       #match x :near ? x.__respondsTo("paintIcon", 4) { # XXX better solution needed -- Java interfaces should respond to something like actuallyDeclared to give a restrictive guard
       #  context.kit().text(x) }
