@@ -206,7 +206,9 @@ def openCommand implements Command {
 
 def exampleFile := <file:/Stuff>
 
-backend.openFrame("File Browser", backend.getRootContext().subPresentType(exampleFile, presentDirectory, true), null) 
+{ def frame := backend.openFrame("File Browser", backend.getRootContext().subPresentType(exampleFile, presentDirectory, true), null) 
+  frame.setLocation(400, 100)
+}
 
 # ------------------------------------------------------------------------------
 
@@ -240,6 +242,35 @@ def presentSeqEval(seqEval, context) {
 }
 
 backend.openFrame("Repl", backend.getRootContext().subPresentType(seqEval, presentSeqEval, false), null) 
+
+# ------------------------------------------------------------------------------
+
+def makeClock(timer, resolution) {
+  def reduce(t) { return t // resolution * resolution }
+  
+  def clock {
+    to getValue() { return reduce(timer.now()) }
+
+    to whenUpdated(reactor) {
+      clock.whenUpdated(reactor, -1)
+    }
+
+    to whenUpdated(reactor, knownGen) {
+      timer.whenPast(reduce(knownGen) + resolution,
+                     def sendClockUpdate() {
+        def answer := reduce(timer.now())
+        reactor <- reactToUpdate(answer, answer, clock)
+      })
+    }
+  }
+  
+  return clock
+}
+
+# XXX needs a time-value type
+{ def frame := backend.openFrame("Clock", backend.getRootContext().subPresent(makeClock(timer, 1000), false), null) 
+  frame.setLocation(510, 48)
+}
 
 # ------------------------------------------------------------------------------
 
