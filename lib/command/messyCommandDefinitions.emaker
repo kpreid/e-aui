@@ -71,8 +71,8 @@ def makeSimpleMessageCommand {
                              messageDesc.getParams(),
                              Tuple[if (messageDesc.getOptResultGuard() =~ g :notNull) {g} else {any}, nullOk[Presenter]])])
       }
-      match [=="__respondsTo", [=="run", queryArity]] {
-        queryArity == arity
+      match [=="__respondsTo", [verb, queryArity]] {
+        verb == "run" && queryArity == arity
       }
       match [`run`, args ? (args.size() == arity)] { 
         [E.send(recipient, messageDesc.getVerb(), args), null]
