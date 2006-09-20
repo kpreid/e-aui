@@ -1,0 +1,370 @@
+# Copyright 2006 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+pragma.enable("accumulator")
+
+def ConstMap := <elib:tables.makeConstMap>.asType()
+def makeListPattern := <elang:evm.makeListPattern>
+def makeSlotPattern := <elang:evm.makeSlotPattern>
+def makeSeqExpr := <elang:evm.makeSeqExpr>
+def makeNounExpr := <elang:evm.makeNounExpr>
+def makeLiteralExpr := <elang:evm.makeLiteralExpr>
+def Slot := <type:org.erights.e.elib.slot.Slot>
+def ObjectExpr := <elang:evm.makeObjectExpr>.asType()
+def EMethod := <elang:evm.makeEMethod>.asType()
+
+def mirandaPairs := [
+  ["__conformTo", 1],
+  ["__respondsTo", 2],
+].asSet()
+
+def implicitScope := safeScope
+
+def implicitNames := accum [].asSet() for `&@x` in implicitScope.getState().domain() { _.with(x) }
+
+def methodStateUsed(methodd) {
+  return methodd.staticScope().namesUsed().domain() &! implicitNames
+}
+
+/** Name subject to change. These objects have an internals-viewing/editing facet. */
+def makeFlexBehavior {
+  to run() {
+    return makeFlexBehavior(e`def _ {}`)
+  }
+  to run(initObjectExpr :ObjectExpr) {
+  
+    # serves as index and as mutable storage
+    def behavior := [].asMap().diverge()
+    
+    for methodd in initObjectExpr.getEScript().getOptMethods() {
+      behavior[[methodd.getVerb(), methodd.getPatterns().size()]] := methodd
+    }
+    
+    # Keys are state nouns which must exist because a method refers to them; values are the number of such references
+    # XXX replace this with a multiset object
+    def requiredState := [].asMap().diverge()
+    def rsAdd(methodd) {
+      for noun in methodStateUsed(methodd) {
+        requiredState[noun] := requiredState.fetch(noun, thunk { 0 }) + 1
+      }
+    }
+    def rsRemove(methodd) {
+      for noun in methodStateUsed(methodd) {
+        requiredState[noun] -= 1
+        if (requiredState[noun] == 0) {
+          requiredState.removeKey(noun)
+        }
+      }
+    }
+
+    for methodd in behavior { 
+      rsAdd(methodd)
+    }
+    
+    # State nouns which instances actually have
+    # XXX we could defer this being made specific until at least one instance exists
+    # XXX .domain().diverge() is broken
+    def existantState := requiredState.getKeys().asSet().diverge()
+    
+    # Promise-list of state updates
+    def [var stateUpdateHead, var stateUpdateTail] := Ref.promise()
+    
+    def publishUpdate(f) {
+      def [newHead, newTail] := Ref.promise()
+      stateUpdateTail.resolve([f, newHead])
+      stateUpdateTail := newTail
+      stateUpdateHead := newHead
+    }
+    
+    def commonState { # implements EMap
+      # XXX need an answer for giving each instance a var slot or other mutable state
+      /** Add state, or overwrite all instances' current state. */
+      to put(noun :String, slot :Slot) {
+        existantState.addElement(noun)
+        publishUpdate(def update(state) { state.put(noun, slot) })
+      }
+      
+      /** Put a fresh VarSlot initialized to the given value in every instance. */
+      to putVar(noun :String, value :any) {
+        existantState.addElement(noun)
+        publishUpdate(def update(state) { state.put(noun, __makeVarSlot(value)) })
+      }
+      
+      # to maps(noun :String)
+      to domain() { return existantState.readOnly() }
+      to removeKey(noun :String) {
+        require(!requiredState.maps(noun), thunk{ `cannot delete noun ${E.toQuote(noun)} because a method refers to it` })
+        existantState.remove(noun)
+        publishUpdate(def update(state) { state.removeKey(noun) })
+      }
+    }
+    
+    def methodsFacet { # implements ESet
+      to addFrom(objectExpr :ObjectExpr) {
+        for methodd in objectExpr.getEScript().getOptMethods() {
+          methodsFacet.addElement(methodd)
+        }
+      }
+    
+      to addElement(methodd :EMethod) {
+        # XXX TODO: We can loosen this restriction to allow adding arbitrary methods iff no instances have yet been made
+        def used := methodStateUsed(methodd)
+        require((def missingNames := used &! existantState).size() == 0,
+                thunk { `cannot add method without definitions for the slots ${missingNames.getElements()}: $methodd` })
+        
+        def key := [methodd.getVerb(), methodd.getPatterns().size()]
+        
+        if (behavior.maps(key)) {
+          rsRemove(behavior[key])
+        }
+        behavior[key] := methodd
+        rsAdd(methodd)
+      }
+      
+      to removeKey(verb :String, arity :int) {
+        def key := [verb, arity]
+        if (behavior.fetch(key, thunk{}) =~ methodd :notNull) {
+          rsRemove(methodd)
+          behavior.removeKey(key)
+        }
+      }
+      
+      to snapshot() { return behavior.getValues().asSet() }
+    }
+  
+    def flexBehavior {
+      to asTypeDesc() {
+        return def flexBehaviorTypeDesc {
+          to getMessageTypes() {
+            return accum [].asMap() for [v, a] => m in behavior {
+              _.with(`$v/$a`, __makeMessageDesc(m.getDocComment(), m.getVerb(), accum [] for p in m.getPatterns() { _.with(__makeParamDesc(E.toString(p), null)) }, null))
+            }
+          }
+        }
+      }
+      
+      to state() { return commonState }
+      to "methods"() { return methodsFacet }
+      
+      to run() {
+        return flexBehavior.run([].asMap())
+      }
+      to run(initState :ConstMap) {
+        if ((def missingNames := requiredState.domain() &! initState.domain()).size() > 0) {
+          throw(`state for $flexBehavior must include ${missingNames.getElements()}`)
+        } else if ((def extraNames := initState.domain() &! requiredState.domain()).size() > 0) {
+          throw(`state for $flexBehavior must not include ${extraNames.getElements()}`)
+        }
+      
+        def state := initState.diverge(String, Slot)
+        
+        # We capture the current update-list head, so that we will see exactly
+        # state updates which occur after the initial creation of this
+        # instance's state.
+        var localUpdateHead := stateUpdateHead
+        
+        def openObject match msg {
+          switch (msg) {
+            match [verb, args] ? behavior.maps([verb, args.size()]) {
+              
+              # Refreshing state
+              while (Ref.isResolved(localUpdateHead)) {
+                def [updater, next] := localUpdateHead
+                localUpdateHead := next
+                try {
+                  updater(state)
+                } catch p {
+                  # It is less bad to proceed with possibly out-of-sync state than to stop following the update chain; we might be able to recover from the former.
+                  # XXX should make a nested exception?
+                  #     or report failed updates to the flexBehavor
+                  throw <- (p)
+                }
+              }
+              
+              def methodd := behavior[[verb, args.size()]]
+              # XXX __fbState unhygenic
+              e`pragma.disable("easy-return")
+                def handler {
+                  method run(${makeListPattern(null, methodd.getPatterns(), null)}, __fbState) :${methodd.getOptResultGuard()} {
+                    ${makeSeqExpr(null, accum [] for n => _ in state {
+                        _.with(e`def ${makeSlotPattern(null, makeNounExpr(null, n, null), null, null)} := __fbState[${makeLiteralExpr(null, n, null)}]`)
+                      }, null)}
+                    ${methodd.getBody()}
+                  }
+                }
+              `.eval(implicitScope).run(args, state)
+            }
+            match [=="__printOn", [outU]] {
+              def out := outU :TextWriter
+              out.print("<")
+              out.print(initObjectExpr.getQualifiedName().split("$").last())
+              out.print(">")
+              null
+            }
+            match [=="__getAllegedType", []] {
+              flexBehavior.asTypeDesc()
+            }
+            #match [=="__optSealedDispatch", [==uncallBrand]] {
+            #  [flexBehavior, "run", [state]]
+            #}
+            match [=="__conformTo", [guard]] {
+              openObject
+            }
+            match [=="__respondsTo", desc ? (desc.size() == 2)] {
+              mirandaPairs.contains(desc) || behavior.maps(desc)
+            }
+            match [verb, args] {
+              throw(`no such method: $verb/${args.size()}`)
+            }
+          }
+        }
+        
+        return def instanceController {
+          to getObject() { return openObject }
+          to getBehavior() { return flexBehavior } # XXX should be amplification
+          to getState() { return state.snapshot() }
+          
+        }
+      }
+    }
+    return flexBehavior
+  }
+}
+
+#------------------------------------------------------------------------------
+
+? def makeFlexBehavior := <import:org.cubik.cle.aui.data.makeFlexBehavior>
+# value: <makeFlexBehavior>
+
+#------------------------------------------------------------------------------
+
+? def complexMethodical := makeFlexBehavior(e`
+>   def "a.b$$foo" {
+>     method bar(arg :int) :float64 { arg + sta }
+>     method baz() :void { sta += 1 }
+>   }
+> `)
+# value: <flexBehavior>
+
+? complexMethodical.asTypeDesc().getMessageTypes()
+
+? def cmic := complexMethodical.run(["sta" => __makeVarSlot(4)])
+# value: <instanceController>
+
+? def cmi := cmic.getObject()
+# value: <foo>
+
+? cmi.__respondsTo("bar", 1)
+# value: true
+
+? cmi.__respondsTo("__respondsTo", 2)
+# value: true
+
+? cmi.__respondsTo("bar", 0)
+# value: false
+
+? cmi.__conformTo(any) == cmi
+# value: true
+
+? cmi.__getAllegedType()
+# value: <flexBehaviorTypeDesc>
+
+? cmi.bar("a")
+# problem: <ClassCastException: String doesn't coerce to an int>
+
+? cmi.bar(1)
+# value: 5.0
+
+? [cmi.baz()]
+# value: [null]
+
+? cmi.bar(1)
+# value: 6.0
+
+? complexMethodical.run([].asMap())
+# problem: state for <flexBehavior> must include ["sta"]
+
+? complexMethodical."methods"().snapshot()
+# value: [e??`
+#        method bar(arg :int) :float64 {
+#            arg.add(sta)
+#        }`, e??`
+#        method baz() :void {
+#            sta := sta.add(1)
+#        }`].asSet()
+
+#------------------------------------------------------------------------------
+
+? def behavior := makeFlexBehavior(e`def _ {}`)
+# value: <flexBehavior>
+
+? def instance := behavior().getObject()
+# value: <_>
+
+? instance()
+# problem: no such method: run/0
+
+? behavior."methods"().addFrom(e`thunk { x }`)
+# problem: cannot add method without definitions for the slots ["x"]: e??`
+
+? behavior.state()["x"] := __makeFinalSlot(1)
+? behavior."methods"().addFrom(e`thunk { x }`)
+
+? instance()
+# value: 1
+
+# now going to test removing state
+
+? behavior.state().removeKey("x")
+# problem: cannot delete noun "x" because a method refers to it
+
+? behavior."methods"().addFrom(e`thunk {}`)
+? behavior.state().removeKey("x")
+
+# now, if we readd the state, even instances which have not been touched should have the new slots
+
+? behavior.state()["x"] := __makeFinalSlot(2)
+? behavior."methods"().addFrom(e`thunk { x }`)
+
+? instance()
+# value: 2
+
+#------------------------------------------------------------------------------
+
+? def behavior := makeFlexBehavior(e`def _ {}`)
+# value: <flexBehavior>
+
+? def i1 := behavior().getObject()
+# value: <_>
+
+? def i2 := behavior().getObject()
+# value: <_>
+
+? behavior.state().putVar("i", 0)
+? behavior."methods"().addFrom(e`thunk { i += 1 }`)
+
+? [i1(), i1()]
+# value: [1, 2]
+
+? i2()
+# value: 1
+
+#------------------------------------------------------------------------------
+
+? def behavior := makeFlexBehavior(e`thunk { 1 }`)
+# value: <flexBehavior>
+
+? def instance := behavior().getObject()
+# value: <_>
+
+? instance()
+# value: 1
+
+? behavior."methods"().removeKey("run", 0)
+? behavior."methods"().snapshot()
+? instance()
+# problem: no such method: run/0
+
