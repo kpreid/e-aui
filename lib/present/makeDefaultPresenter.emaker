@@ -182,7 +182,7 @@ def presentFlexList(flexList, context) {
         refresh <- ()
         flexList.insert(i, new)
       }))
-      box."add(Component)"(context.subPresentType(entryFacet, kit.getObjectSelectorPresenter(), context.quoting()))
+      box."add(Component)"(context.subPresentType(entryFacet, kit.getObjectSelectorPresenter(), false))
       
     }
     box."add(Component)"(kit.dropTarget(def push(new, _) { 
