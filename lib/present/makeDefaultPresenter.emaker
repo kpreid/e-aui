@@ -16,6 +16,7 @@ def <awt>                    := <import:java.awt.*>
 def <swing>                  := <import:javax.swing.*>
 def Command                  := <aui:command.Command>
 def messageDescForCommand    := <aui:command.messageDescForCommand>
+#def makeLamportSlot          := <import:org.erights.e.elib.slot.makeLamportSlot>
 def FinalSlot                := <type:org.erights.e.elib.slot.FinalSlot>
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
 def Slot                     := <type:org.erights.e.elib.slot.Slot>
@@ -27,6 +28,9 @@ def gbc                      := <awt:makeGridBagConstraints>
 def makeInsets               := <awt:makeInsets>
 def makeBox                  := <swing:makeBox>
 def makeFlowLayout           := <awt:makeFlowLayout>
+def [=> Zero, => One, => Many,
+     => zero, => one, => many,
+     => ZOM, => ZO] := <aui:data.zeroOneMany>
 
 def textLimit := 60
 
@@ -140,6 +144,56 @@ def presentMapY(map, context) {
     i += 1
   }
   return tableC
+}
+
+def presentFlexList(flexList, context) {
+  # Operations to directly (through interaction) support
+  #   put (replacement)
+  #   insert
+  #   append
+  #   snapshot/diverge/asKeys/asSet/etc? or will command menus do?
+  # Handle Very Large lists gracefully (e.g. "...", and providing search-y operations, indexOf, jumping to view an index, etc.)
+  # Handle updating: refresh on mouseover, recognize when most items are similar, ...
+  
+  # For now, this is correct iff nothing else modifies the list.
+  
+  def kit := context.kit()
+  def box := kit.y()
+  
+  def refresh() {
+    box.removeAll()
+    for i :int => _ in flexList {
+      def entryFacet {
+        to delete() { 
+          refresh <- ()
+          flexList.replace(i, i + 1, [], 0, 0)
+        }
+        to getValue() { return one(flexList[i]) }
+        to setValue(new) { 
+          refresh <- ()
+          flexList[i] := (new :One).getValue()
+        }
+        to whenUpdated(reactor) { 
+          # throw <- ("whenUpdated for FlexList facets not yet implemented")
+          reactor <- reactToUpdate(entryFacet.getValue(), 0, null)
+        }
+      }
+      box."add(Component)"(kit.dropTarget(def insert(new, _) { 
+        refresh <- ()
+        flexList.insert(i, new)
+      }))
+      box."add(Component)"(context.subPresentType(entryFacet, kit.getObjectSelectorPresenter(), context.quoting()))
+      
+    }
+    box."add(Component)"(kit.dropTarget(def push(new, _) { 
+      refresh <- ()
+      flexList.push(new)
+    }))
+  }
+
+  refresh()
+  
+  return box
 }
 
 def makeCompleteCommandUI(command :Command, editUI, context) {
@@ -367,6 +421,8 @@ def presentENode(node, context) {
   })
 }
 
+def FlexList := <elib:tables.makeFlexList>.asType()
+
 def makeDefaultPresenter([=> SimpleMessageCommand,
                           => FlexArgCommand] | _) {
   return def defaultPresenter(object, context) {
@@ -377,6 +433,7 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
       match x :Twine { presentTwine(x, context) }
       match x :List  { presentListY(x, context) }
       match x :Map   { presentMapY(x, context) }
+      match x :FlexList { presentFlexList(x, context) }
       match x :FinalSlot {
         context.subPresent(x.getValue(), context.quoting()) }
 
