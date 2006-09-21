@@ -16,7 +16,6 @@ def <swing>                  := <import:javax.swing.*>
 def action                   := <aui:swing.action>
 
 def borderFactory            := <swing:makeBorderFactory>
-def makeDataFlavor           := <awt:datatransfer.makeDataFlavor>
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
 def setupComponentReactor    := <aui:swing.setupComponentReactor>
 def toKey                    := <elib:tables.makeTraversalKey>
@@ -26,14 +25,13 @@ def [=> one, => zero] | _    := <aui:data.zeroOneMany>
 def markerIcon := <swing:makeImageIcon>(<resource:org/cubik/cle/aui/swing/slot-target.gif>)
 
 def makeObjectSelectorAuthor(awtDropTarget) :any {
-  def setupDrop := <import:com.skyhunter.e.awt.dnd.setupDropFuncAuthor> \
-                     (awtDropTarget, fn _ {})
   def makeObjectSelector(zoSlot, context) :any {
     
     def hole := JPanel``
         
     def updateSel(_) :void {
       def current := zoSlot.getValue()
+      #throw <- (`updateSel entry, got $current`)
       hole.removeAll()
       if (current.__respondsTo("getValue", 0)) { # XXX should use One guard
         def object := current.getValue()
@@ -41,32 +39,19 @@ def makeObjectSelectorAuthor(awtDropTarget) :any {
       }
       hole.revalidate()
       hole.repaint(hole.getVisibleRect()) # *sigh*, why is this necessary?
+      #throw <- (`updateSel exit ${hole.getComponents()}`)
     }
     
     setupComponentReactor(hole, zoSlot, updateSel, null)
-      
-    def prepDrop(textPane, reactor) :void {
-      # code copied and modified from esrc/caplets/capEdit/capEdit.caplet. XXX make it nicer in using Java's D&D correctly
-      setupDrop(textPane, [
-        makeDataFlavor(makeDataFlavor.getJavaJVMLocalObjectMimeType() +
-                       "; class=java.awt.dnd.DropTargetEvent") =>
-          reactor])
-    }
-  
+    
     def marker := makeJLabel("")
     marker.setIcon(markerIcon)
 
-    def outer := 
-      JPanel`$hole.X.Y $marker
-             V         ${JPanel``}`
-  
-    prepDrop(outer, fn obj {
-      # XXX need a better way to cancel the drag than letting it try to assign and throwing
+    def outer := context.kit().dropTarget(def dropHandler(obj, _) :void {
       zoSlot.setValue(one(obj)) 
-      null
     })
-    #outer.setBorder(borderFactory.createLineBorder(<awt:Color>.getRed()))
-    outer.setBorder(borderFactory.createLoweredBevelBorder())
+    outer."add(Component)"(JPanel`$hole.X.Y $marker
+                                  V         ${JPanel``}`)
     outer
   }
 }

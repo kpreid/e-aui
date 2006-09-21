@@ -15,6 +15,7 @@ def <swing>                  := <import:javax.swing.*>
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
 def makePresentationContext  := <aui:present.makePresentationContext>
 def presentCommandRun        := <aui:present.presentCommandRun>
+def makeDataFlavor           := <awt:datatransfer.makeDataFlavor>
 
 def dumpComponents(c, out) {
   out.lnPrint(c.__getAllegedType())
@@ -120,6 +121,16 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
       }
     })
   }
+
+  def setupDrop := <import:com.skyhunter.e.awt.dnd.setupDropFuncAuthor> \
+                     (awtDropTarget, fn _ {})
+  def prepDrop(component, reactor) :void {
+    # code copied and modified from esrc/caplets/capEdit/capEdit.caplet. XXX make it nicer in using Java's D&D correctly
+    setupDrop(component, [
+      makeDataFlavor(makeDataFlavor.getJavaJVMLocalObjectMimeType() +
+                     "; class=java.awt.dnd.DropTargetEvent") =>
+        reactor])
+  }
   
   def presentKit {
     to failedPresent(object, problem) {
@@ -167,6 +178,22 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
 
     /** XXX this ought to not exist here */
     to getObjectSelectorPresenter() { return makeObjectSelector }
+
+    to dropTarget(handler) {
+      # XXX review the interface for this
+      def outer := JPanel``
+    
+      prepDrop(outer, def pdOuter(obj) {
+        try {
+          # XXX need a better way to cancel the drag
+          handler(obj, null)
+        } catch p { 
+          throw <- (p)
+        }
+      })
+      outer.setBorder(borderFactory.createLoweredBevelBorder())
+      return outer
+    }
 
     to text(s :String) {
       return makeJLabel(s)
