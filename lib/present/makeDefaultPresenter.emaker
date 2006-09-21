@@ -196,6 +196,39 @@ def presentFlexList(flexList, context) {
   return box
 }
 
+def presentFlexSet(flexSet, context) {
+  # This is correct if nothing else modifies the list. XXX add mouseover refreshes/refresh button. XXX we need a general UI convention
+  
+  def kit := context.kit()
+  def box := kit.y()
+  
+  def refresh() {
+    box.removeAll()
+    for item in flexSet {
+      def entryFacet {
+        to delete() { 
+          refresh <- ()
+          flexSet.remove(item)
+        }
+        to getValue() { return item }
+      }
+      box."add(Component)"(context.subPresentType(entryFacet, fn _,c {c.subPresent(entryFacet.getValue(), context.quoting())}, false))
+      
+    }
+    box."add(Component)"(kit.dropTarget(def addElement(new, _) { 
+      refresh <- ()
+      flexSet.addElement(new)
+    }))
+    
+    box.revalidate()
+    box.repaint(box.getVisibleRect()) # *sigh*, why is this necessary?
+  }
+
+  refresh()
+  
+  return box
+}
+
 def makeCompleteCommandUI(command :Command, editUI, context) {
   # require(messageDescForCommand(command).getParams().size() == 0)
   def hole := JPanel``
@@ -422,6 +455,7 @@ def presentENode(node, context) {
 }
 
 def FlexList := <elib:tables.makeFlexList>.asType()
+def FlexSet := <elib:tables.makeFlexSet>.asType()
 
 def makeDefaultPresenter([=> SimpleMessageCommand,
                           => FlexArgCommand] | _) {
@@ -434,6 +468,7 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
       match x :List  { presentListY(x, context) }
       match x :Map   { presentMapY(x, context) }
       match x :FlexList { presentFlexList(x, context) }
+      match x :FlexSet { presentFlexSet(x, context) }
       match x :FinalSlot {
         context.subPresent(x.getValue(), context.quoting()) }
 
