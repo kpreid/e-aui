@@ -177,11 +177,11 @@ def presentCaplet(capletFile) {
 
 # File-browser application example
 
-def makeOpenCommand
+def openCommand
 
 def presentDirEntry(name) {
   return def present(file, context) {
-    return context.kit().plabel(name, null, context, file, thunk { makeOpenCommand(file) })
+    return context.kit().plabel(name, null, context, file, thunk { makeCompleteCommand(openCommand, [file]) })
   }
 }
 
@@ -193,7 +193,7 @@ def presentDirectory(dir, context) {
   return container
 }
 
-def openCommand implements Command {
+bind openCommand implements Command {
   to "&available"([_]) { return &true }
   to run(file) { 
     return if (file.isDirectory()) {
