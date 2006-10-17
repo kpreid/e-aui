@@ -204,7 +204,7 @@ bind openCommand implements Command {
   }
 }
 
-def exampleFile := <file:/Stuff>
+def exampleFile := <file:/>
 
 { def frame := backend.openFrame("File Browser", backend.getRootContext().subPresentType(exampleFile, presentDirectory, true), null) 
   frame.setLocation(400, 100)
