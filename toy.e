@@ -56,6 +56,8 @@ if (currentVat.getRunnerKind() != "awt") {
 }
 def backend := <aui:swing.makeSwingBackend>(<awt>, <swing>, presentDefault, <aui:present.makeDefaultIconPresenter>(), auiCommon, stdout)
 
+def rootsFlex := [].asMap().diverge()
+
 # ------------------------------------------------------------------------------
 
 def parse := e__quasiParser
@@ -206,8 +208,8 @@ bind openCommand implements Command {
 
 def exampleFile := <file:/>
 
-{ def frame := backend.openFrame("File Browser", backend.getRootContext().subPresentType(exampleFile, presentDirectory, true), null) 
-  frame.setLocation(400, 100)
+rootsFlex["File Browser"] := thunk { 
+  [exampleFile, presentDirectory]
 }
 
 # ------------------------------------------------------------------------------
@@ -241,7 +243,9 @@ def presentSeqEval(seqEval, context) {
   return box
 }
 
-backend.openFrame("Repl", backend.getRootContext().subPresentType(seqEval, presentSeqEval, false), null) 
+rootsFlex["Repl"] := thunk {
+  [seqEval, presentSeqEval]
+} 
 
 # ------------------------------------------------------------------------------
 
@@ -268,48 +272,73 @@ def makeClock(timer, resolution) {
 }
 
 # XXX needs a time-value type
-{ def frame := backend.openFrame("Clock", backend.getRootContext().subPresent(makeClock(timer, 1000), false), null) 
-  frame.setLocation(510, 48)
+rootsFlex["Clock"] := thunk { 
+  [makeClock(timer, 1000), null]
 }
 
 # ------------------------------------------------------------------------------
 
-#def cmd := makeFlexArgMessageCommand(def x := <elib:tables.makeFlexMap>, x.__getAllegedType().getMessageTypes()["fromTypes/2"], [makeLamportSlot(one(<type:java.lang.Object>)), makeLamportSlot(one(<type:java.lang.Object>))])
+rootsFlex["Things"] := thunk {
+  def exampleButtonCommand := makeArglessMessageCommand(def tk := <awt:makeToolkit>.getDefaultToolkit(), tk.__getAllegedType().getMessageTypes()["beep/0"])
 
-def exampleButtonCommand := makeArglessMessageCommand(def tk := <awt:makeToolkit>.getDefaultToolkit(), tk.__getAllegedType().getMessageTypes()["beep/0"])
+  [[
+    => exampleButtonCommand, 
+    => Zero, => One, => Many, 
+    => zero, => one, => many, 
+    => ZOM, => ZO, 
+    => backend, 
+    => privilegedScope, 
+    => safeScope,
+  ], null]
+}
 
-# meta.getState() 
-# cmd 
-# [1, 2, 3, [example, 4, 5, 6]]
-def example := [
-  => exampleButtonCommand, 
-  => Zero, => One, => Many, 
-  => zero, => one, => many, 
-  => ZOM, => ZO, 
-  => backend, 
-  => privilegedScope, 
-  => safeScope,
-]
+rootsFlex["Expression"] := thunk { 
+  def expr := e`
+    pragma.enable("easy-return")
+    pragma.disable("explicit-result-guard")
+    def object extends 1.0 implements Example {
+      to makeCounter() {
+        return { var x := 0; [thunk { x += 1 }, &x] }
+      }
+      to "exit"() {
+        try { throw("biff") } catch p { throw(p) } finally { notice('q') }
+      }
+      to patterns() {
+        def [_, a, var b, &c, d] + g := data # , via (e) f
+      }
+      to "meta"() {
+        [meta.getState(),
+         meta.context()]
+      }
+      to plumbing() { def drain match water { flush(water) } }
+    }
+  `
+  [expr, null]
+}
 
-#def expr := e`
-#  pragma.enable("easy-return")
-#  pragma.disable("explicit-result-guard")
-#  def object extends 1.0 implements Example {
-#    to makeCounter() {
-#      return { var x := 0; [thunk { x += 1 }, &x] }
-#    }
-#    to "exit"() {
-#      try { throw("biff") } catch p { throw(p) } finally { notice('q') }
-#    }
-#    to patterns() {
-#      def [_, a, var b, &c, d] + g := data # , via (e) f
-#    }
-#    to "meta"() {
-#      [meta.getState(),
-#       meta.context()]
-#    }
-#    to plumbing() { def drain match water { flush(water) } }
-#  }
-#`
+# ------------------------------------------------------------------------------
 
-#backend.openFrame("Toy", backend.getRootContext().subPresent(expr, true), null) 
+def roots := rootsFlex.snapshot()
+
+def presentNamedRootMaker(name) {
+  def invokeCommand implements Command {
+    to "&available"([_]) { return &true }
+    to run(f) { 
+      return f()
+    }
+  }
+
+  return def namePresent(object, context) {
+    return context.kit().plabel(name, null, context, object, thunk { makeCompleteCommand(invokeCommand, [object]) })
+  }
+}
+
+def presentRoots(map, context) {
+  def container := E.call(context.kit(), "y",
+    accum [] for name => maker in map {
+      _.with(context.subPresentType(maker, presentNamedRootMaker(name), true))
+    })
+  return container
+}
+
+backend.openFrame("Roots", backend.getRootContext().subPresentType(roots, presentRoots, false), null) 
