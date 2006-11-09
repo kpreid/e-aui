@@ -21,8 +21,22 @@ def DiscardedChainMarker {}
 def makeFollower { # implements DeepFrozen
   to run(var chain, target, [=> lazy := false, => andNow := false]) {
     def status
+    def follower
     
-    def follower {
+    def register() {
+      if (andNow) {
+        Ref.whenResolved(chain, fn _ { follower <- now() })
+      } else {
+        # Break the reference cycle
+        whenResolvedLoose(chain, fn chainLater {
+          chain := chainLater
+          follower <- now()
+        })
+        chain := DiscardedChainMarker
+      }
+    }
+    
+    bind follower {
       to __printOn(out :TextWriter) {
         out.print("<")
         if (lazy) {
@@ -72,21 +86,12 @@ def makeFollower { # implements DeepFrozen
         # Registering only if progress was made ensures that there will not be
         # more than one reactor for any particular link of the chain.
         if (progress & !lazy) {
-          if (andNow) {
-            Ref.whenResolved(chain, fn _ { follower <- now() })
-          } else {
-            # Break the reference cycle
-            whenResolvedLoose(chain, fn chainLater {
-              chain := chainLater
-              follower <- now()
-            })
-            chain := DiscardedChainMarker
-          }
+          register()
         }
       }
     }
     
-    if (!lazy) { follower <- now() }
+    if (!lazy) { register <- () }
         
     return follower
   }
@@ -170,4 +175,13 @@ def makeFollower { # implements DeepFrozen
 
 ? bind next := [def _(x) :void { x.push(5) }, (def next2; next2)]; follower.now(); l
 # value: [1, 2, 3, 4, 5].diverge()
+
+# --- Regression- bug where if the initial element was unresolved at cycle-after-creation the loop would never happen.
+
+? def follower := makeFollower((def next; next), print, ["lazy" => false])
+# value: <follower feeding <print>>
+
+? bind next := [def _(x) :void { x("ding") }, (def next2; next2)]
+? null
+# stdout: ding
 
