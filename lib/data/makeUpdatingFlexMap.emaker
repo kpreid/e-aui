@@ -1,0 +1,91 @@
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+def makeUpdatingFlexMap {
+  to run() {
+    def storage := [].asMap().diverge()
+
+    def qPuts := [].asMap().diverge()
+    def qRemoves := [].asSet().diverge()
+    
+    def qIsEmpty() { return qPuts.size() <=> 0 && qRemoves.size() <=> 0 }
+
+    def [var futureHead, var futureTail] := Ref.promise()
+    
+    def flush() {
+      if (!qIsEmpty()) {
+        def puts := qPuts.snapshot()
+        def removes := qRemoves.snapshot()
+        qPuts.removeAll()
+        qRemoves.removeAll(qRemoves)
+        
+        def update(target) {
+          target.putAll(puts)
+          target.removeKeys(removes.getElements().asKeys())
+        }
+
+        def [newHead, newTail] := Ref.promise()
+        futureTail.resolve([update, newHead])
+        futureTail := newTail
+        futureHead := newHead
+      }
+    }
+    
+    def publish(puts, removes) {
+      if (qIsEmpty()) {
+        flush <- ()
+      }
+      qPuts.putAll(puts)
+      qRemoves.addAll(removes)
+    }
+    
+    def updatingFlexMap extends storage.readOnly() {
+      to getFuture() { return [updatingFlexMap.snapshot(), futureHead] }
+      #to get(key) { return storage.get(key) }
+      #to iterate(i) { storage.iterate(i) }
+      to put(key, value) { 
+        storage.put(key, value)
+        publish([key => value], [].asSet())
+      }
+      to removeKey(key) {
+        if (storage.maps(key)) {
+          storage.removeKey(key)
+          publish([].asMap(), [key].asSet())
+        }
+      }
+    }
+    
+    return updatingFlexMap
+  }
+}
+
+? pragma.enable("easy-when")
+> def makeFollower := <import:org.cubik.cle.aui.data.makeFollower>
+> def makeReplica(source) :any {
+>   # NOTE: because the readOnly and storage are not customized, they cannot
+>   # serialize with the following preserved.
+>   return when (source.getFuture()) -> _([current, chain]) :any {
+>     def replicaStorage := current.diverge()
+>     makeFollower(chain, replicaStorage, ["lazy" => false])
+>     return replicaStorage.readOnly()
+>   }
+> }
+# value: <makeReplica>
+
+? def makeUpdatingFlexMap := <import:org.cubik.cle.aui.data.makeUpdatingFlexMap>
+# value: <makeUpdatingFlexMap>
+
+? def ufm := makeUpdatingFlexMap()
+# value: <updatingFlexMap>
+
+? interp.waitAtTop(def cfm := makeReplica(ufm))
+? cfm
+# value: [].asMap().diverge().readOnly()
+
+? ufm.put(1, 2)
+? cfm
+# value: [1 => 2].diverge().readOnly()
+
+? ufm.removeKey(1)
+? cfm
+# value: [].asMap().diverge().readOnly()
