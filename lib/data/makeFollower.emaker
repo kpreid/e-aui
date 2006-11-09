@@ -1,0 +1,173 @@
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+pragma.enable("anon-lambda")
+pragma.enable("trinary-define")
+
+/** Like Ref.whenResolved, but doesn't keep the original reference around. */
+def whenResolvedLoose(x, f) {
+  if (Ref.isResolved(x)) {
+    return f <- (x)
+  } else {
+    x <- __whenMoreResolved(fn y { whenResolvedLoose(y, f) })
+  }
+}
+
+def DiscardedChainMarker {}
+
+/** A follower follows a promise 'chain' of one-argument functions, applying them to the 'target'. 
+  * If 'lazy', the chain will be followed only when follower.now() is invoked; if not lazy, the chain will be followed as it resolves. 
+  * Unless 'andNow' is true, follower.now() cannot be used on nonlazy followers, but enabling it will prevent distributed acyclic GC from collecting the follower when the chain is no longer being updated. */
+def makeFollower { # implements DeepFrozen
+  to run(var chain, target, [=> lazy := false, => andNow := false]) {
+    def status
+    
+    def follower {
+      to __printOn(out :TextWriter) {
+        out.print("<")
+        if (lazy) {
+          out.print("lazy ")
+        }
+        if (andNow) {
+          out.print("andNow ")
+        }
+        out.print("follower feeding ")
+        out.quote(target)
+        if (Ref.optProblem(chain) =~ p :notNull) {
+          out.print(", broken: ")
+          out.quote(p)
+        }
+        out.print(">")
+      }
+      
+      to status() { return status }
+    
+      /** Immediately follow as many links in the chain as possible. */
+      to now() {
+        if (Ref.isResolved(status)) {
+          return
+        }
+        var progress := false
+
+        while (Ref.isResolved(chain)) {
+          progress := true
+          
+          if (Ref.isBroken(chain)) {
+             bind status := chain
+             return
+          } else if (chain == DiscardedChainMarker) {
+            throw("now() may not be used on this follower")
+          }
+          def [updater, next] := (chain, fn problem { bind status := Ref.broken(problem); return })
+          chain := next
+
+          try {
+            updater(target)
+          } catch p {
+            # XXX this behavior upon crashed updates should be configurable.
+            throw <- (p)
+          }
+        }
+        
+        # Registering only if progress was made ensures that there will not be
+        # more than one reactor for any particular link of the chain.
+        if (progress & !lazy) {
+          if (andNow) {
+            Ref.whenResolved(chain, fn _ { follower <- now() })
+          } else {
+            # Break the reference cycle
+            whenResolvedLoose(chain, fn chainLater {
+              chain := chainLater
+              follower <- now()
+            })
+            chain := DiscardedChainMarker
+          }
+        }
+      }
+    }
+    
+    if (!lazy) { follower <- now() }
+        
+    return follower
+  }
+}
+
+? def makeFollower := <import:org.cubik.cle.aui.data.makeFollower>
+# value: <makeFollower>
+
+? def l := [].diverge()
+# value: [].diverge()
+
+? def follower := makeFollower([def _(x) :void { x.push(1) }, (def next; next)], l, ["lazy" => true])
+# value: <lazy follower feeding [].diverge()>
+
+? follower.status()
+# value: <Promise>
+
+? l
+# value: [].diverge()
+
+? follower.now()
+? l
+# value: [1].diverge()
+
+? bind next := [def _(x) :void { x.push(2) }, (def next2; next2)]
+# value: [<...__main$1>, <Promise>]
+
+? follower.now()
+? l
+# value: [1, 2].diverge()
+
+# --- Testing broken chain
+
+? def follower := makeFollower((def next; next), l, ["lazy" => true])
+# value: <lazy follower feeding [1, 2].diverge()>
+
+? follower.status()
+# value: <Promise>
+
+? bind next := Ref.broken("hypothetical network error"); null
+? follower.now()
+
+? follower.status()
+# value: <ref broken by problem: hypothetical network error>
+
+? follower
+# value: <lazy follower feeding [1, 2].diverge(), broken: problem: hypothetical network error>
+
+? l
+# value: [1, 2].diverge()
+
+# --- Testing nonlazy operation
+
+? def follower := makeFollower([def _(x) :void { x.push(3) }, (def next; next)], l, ["lazy" => false])
+# value: <follower feeding [1, 2].diverge()>
+
+? null
+? l
+# value: [1, 2, 3].diverge()
+
+? follower.now()
+# problem: now() may not be used on this follower
+
+? l
+# value: [1, 2, 3].diverge()
+
+? bind next := [def _(x) :void { x.push(4) }, (def next2; next2)]
+# value: [<...__main$1>, <Promise>]
+
+? l
+# value: [1, 2, 3, 4].diverge()
+
+# --- Testing nonlazy andNow operation
+
+? def follower := makeFollower((def next; next), l, ["lazy" => false, "andNow" => true])
+# value: <andNow follower feeding [1, 2, 3, 4].diverge()>
+
+? follower.now()
+? l
+# value: [1, 2, 3, 4].diverge()
+
+? bind next := [def _(x) :void { x.push(5) }, (def next2; next2)]; follower.now(); l
+# value: [1, 2, 3, 4, 5].diverge()
+

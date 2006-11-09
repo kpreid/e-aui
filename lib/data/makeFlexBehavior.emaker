@@ -6,6 +6,9 @@ pragma.disable("explicit-result-guard")
 
 pragma.enable("accumulator")
 
+def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
+                       ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
+
 def ConstMap := <elib:tables.makeConstMap>.asType()
 def makeListPattern := <elang:evm.makeListPattern>
 def makeSlotPattern := <elang:evm.makeSlotPattern>
@@ -15,6 +18,8 @@ def makeLiteralExpr := <elang:evm.makeLiteralExpr>
 def Slot := <type:org.erights.e.elib.slot.Slot>
 def ObjectExpr := <elang:evm.makeObjectExpr>.asType()
 def EMethod := <elang:evm.makeEMethod>.asType()
+
+def makeFollower := <aui:data.makeFollower>
 
 def mirandaPairs := [
   ["__conformTo", 1],
@@ -165,24 +170,13 @@ def makeFlexBehavior {
         # state updates which occur after the initial creation of this
         # instance's state.
         var localUpdateHead := stateUpdateHead
+        def follower := makeFollower(stateUpdateHead, state, ["lazy" => true])
         
         def openObject match msg {
           switch (msg) {
             match [verb, args] ? behavior.maps([verb, args.size()]) {
               
-              # Refreshing state
-              while (Ref.isResolved(localUpdateHead)) {
-                def [updater, next] := localUpdateHead
-                localUpdateHead := next
-                try {
-                  updater(state)
-                } catch p {
-                  # It is less bad to proceed with possibly out-of-sync state than to stop following the update chain; we might be able to recover from the former.
-                  # XXX should make a nested exception?
-                  #     or report failed updates to the flexBehavor
-                  throw <- (p)
-                }
-              }
+              follower.now()
               
               def methodd := behavior[[verb, args.size()]]
               # XXX __fbState unhygenic
