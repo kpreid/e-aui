@@ -278,6 +278,17 @@ rootsFlex["Clock"] := thunk {
 
 # ------------------------------------------------------------------------------
 
+rootsFlex["Updating FlexSet"] := thunk {
+  def makeUpdatingFlexSet := <aui:data.makeUpdatingFlexSet>
+  
+  def uf := makeUpdatingFlexSet()
+  uf.addElement(1)
+  
+  [[uf, uf], null]
+}
+
+# ------------------------------------------------------------------------------
+
 rootsFlex["Things"] := thunk {
   def exampleButtonCommand := makeArglessMessageCommand(def tk := <awt:makeToolkit>.getDefaultToolkit(), tk.__getAllegedType().getMessageTypes()["beep/0"])
 

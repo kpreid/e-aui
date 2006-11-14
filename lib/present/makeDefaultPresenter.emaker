@@ -14,6 +14,7 @@ def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].sp
 
 def <awt>                    := <import:java.awt.*>
 def <swing>                  := <import:javax.swing.*>
+def makeFollower             := <aui:data.makeFollower>
 def Command                  := <aui:command.Command>
 def messageDescForCommand    := <aui:command.messageDescForCommand>
 #def makeLamportSlot          := <import:org.erights.e.elib.slot.makeLamportSlot>
@@ -197,34 +198,71 @@ def presentFlexList(flexList, context) {
 }
 
 def presentFlexSet(flexSet, context) {
-  # This is correct if nothing else modifies the list. XXX add mouseover refreshes/refresh button. XXX we need a general UI convention
+  # XXX add mouseover refreshes/refresh button/timer. XXX we need a general UI convention for no-notification-possible refreshes.
   
   def kit := context.kit()
   def box := kit.y()
   
-  def refresh() {
-    box.removeAll()
-    for item in flexSet {
-      def entryFacet {
-        to delete() { 
-          refresh <- ()
-          flexSet.remove(item)
-        }
-        to getValue() { return item }
+  def itemToIndex := [].asMap().diverge()
+  
+  def refresh
+  
+  box."add(Component)"(kit.dropTarget(def addElement(new, _) { 
+    refresh <- ()
+    flexSet.addElement(new)
+  }))
+  
+  def insert(item) { 
+    def newIndex := box.getComponentCount() - 1
+    itemToIndex.put(item, newIndex, true)
+    
+  	def entryFacet {
+      to delete() { 
+        refresh <- ()
+        flexSet.remove(item)
       }
-      box."add(Component)"(context.subPresentType(entryFacet, fn _,c {c.subPresent(entryFacet.getValue(), context.quoting())}, false))
-      
+      to getValue() { return item }
     }
-    box."add(Component)"(kit.dropTarget(def addElement(new, _) { 
-      refresh <- ()
-      flexSet.addElement(new)
-    }))
+    box."add(Component, int)"(
+      context.subPresentType(entryFacet, fn _,c {c.subPresent(entryFacet.getValue(), context.quoting())}, false),
+      newIndex)
     
     box.revalidate()
     box.repaint(box.getVisibleRect()) # *sigh*, why is this necessary?
   }
+  
+  if (flexSet.__respondsTo("getFuture", 0)) {
+    def [now, then] := flexSet.getFuture()
+    for item in now { insert(item) }
+    makeFollower(then, def followTarget {
+      to addAll(items) { for item in items { insert(item) } }
+      to removeAll(items) { 
+        for item in items {
+          def index := itemToIndex[item]
+          box.remove(index)
+          itemToIndex.removeKey(item)
+          for otherItem => otherIndex in itemToIndex {
+            if (otherIndex > index) {
+              itemToIndex[otherItem] := otherIndex - 1
+            }
+          }
+        }
+        box.revalidate()
+        box.repaint(box.getVisibleRect())
+      }
+    }, [].asMap())
+    bind refresh := fn {}
 
-  refresh()
+  } else {
+    bind refresh() {
+      itemToIndex.removeAll()
+      box.removeAll()
+      for item in flexSet { insert(item) }
+    }
+
+    refresh()
+  }
+
   
   return box
 }
@@ -456,6 +494,13 @@ def presentENode(node, context) {
 
 def FlexList := <elib:tables.makeFlexList>.asType()
 def FlexSet := <elib:tables.makeFlexSet>.asType()
+def UpdatingFlexSet { to coerce(specimen, optEjector) {
+  if (specimen.__getAllegedType().getFQName() =~ `@_$$updatingFlexSet__C`) {
+    return specimen
+  } else {
+    throw.eject(optEjector, "not an UpdatingFlexSet")
+  }
+} }
 
 def makeDefaultPresenter([=> SimpleMessageCommand,
                           => FlexArgCommand] | _) {
@@ -468,7 +513,7 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
       match x :List  { presentListY(x, context) }
       match x :Map   { presentMapY(x, context) }
       match x :FlexList { presentFlexList(x, context) }
-      match x :FlexSet { presentFlexSet(x, context) }
+      match x :any[FlexSet, UpdatingFlexSet] { presentFlexSet(x, context) }
       match x :FinalSlot {
         context.subPresent(x.getValue(), context.quoting()) }
 
