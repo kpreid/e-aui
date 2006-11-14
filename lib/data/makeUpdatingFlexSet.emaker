@@ -1,0 +1,117 @@
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+# XXX extract the common features between this and makeUpdatingFlexMap
+
+def makeUpdatingFlexSet {
+  to run() {
+    def storage := [].asSet().diverge()
+
+    def qPuts := [].asSet().diverge()
+    def qRemoves := [].asSet().diverge()
+    
+    def qIsEmpty() { return qPuts.size() <=> 0 && qRemoves.size() <=> 0 }
+
+    def [var futureHead, var futureTail] := Ref.promise()
+    
+    def flush() {
+      if (!qIsEmpty()) {
+        def puts := qPuts.snapshot()
+        def removes := qRemoves.snapshot()
+        qPuts.removeAll(qPuts)
+        qRemoves.removeAll(qRemoves)
+        
+        def update(target) {
+          target.addAll(puts)
+          target.removeAll(removes)
+        }
+
+        def [newHead, newTail] := Ref.promise()
+        futureTail.resolve([update, newHead])
+        futureTail := newTail
+        futureHead := newHead
+      }
+    }
+    
+    def publish(puts, removes) {
+      if (qIsEmpty()) {
+        flush <- ()
+      }
+      qPuts.addAll(puts)
+      qRemoves.addAll(removes)
+    }
+    
+    def updatingFlexSet extends storage.readOnly() {
+      to getFuture() {
+        flush() # make sure futureHead is consistent with current state
+        return [updatingFlexSet.snapshot(), futureHead]
+      }
+      # to addAll ...
+      to addElement(new) { 
+        if (!storage.contains(new)) {
+          storage.addElement(new)
+          qRemoves.remove(new)
+          publish([new].asSet(), [].asSet())
+        }
+      }
+      to remove(old) {
+        if (storage.contains(old)) {
+          storage.remove(old)
+          qPuts.remove(old)
+          publish([].asMap(), [old].asSet())
+        }
+      }
+    }
+    
+    return updatingFlexSet
+  }
+}
+
+? pragma.enable("easy-when")
+> def makeFollower := <import:org.cubik.cle.aui.data.makeFollower>
+> def makeReplica(source) :any {
+>   # NOTE: because the readOnly and storage are not customized, they cannot
+>   # serialize with the following preserved.
+>   return when (source.getFuture()) -> _([current, chain]) :any {
+>     def replicaStorage := current.diverge()
+>     makeFollower(chain, replicaStorage, ["lazy" => false])
+>     return replicaStorage.readOnly()
+>   }
+> }
+# value: <makeReplica>
+
+? def makeUpdatingFlexSet := <import:org.cubik.cle.aui.data.makeUpdatingFlexSet>
+# value: <makeUpdatingFlexSet>
+
+? def uf := makeUpdatingFlexSet()
+# value: <updatingFlexSet>
+
+? interp.waitAtTop(def cf := makeReplica(uf))
+? cf
+# value: [].asSet().readOnly()
+
+? uf.addElement(1)
+? cf
+# value: [1].asSet().readOnly()
+
+? uf.remove(1)
+? cf
+# value: [].asSet().readOnly()
+
+? # Regression test: ordering of adds and removes was not considered
+? uf.addElement(2)
+? uf.remove(2); uf.addElement(2)
+? cf
+# value: [2].asSet().readOnly()
+
+? # Regression test: getFuture() after a mutation would produce redundant updates
+? def uf2 := makeUpdatingFlexSet()
+> uf2.addElement(1)
+> def [now, then] := uf2.getFuture()
+> uf2.addElement(2)
+> makeFollower(then, def target match msg { print(msg) }, [].asMap())
+> now
+# value: [1].asSet()
+
+? 
+# stdout: ["addAll", [[2].asSet()]]["removeAll", [[].asSet()]]
