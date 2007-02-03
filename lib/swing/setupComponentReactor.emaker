@@ -38,7 +38,7 @@ def setupComponentReactor {
   }
 }
 
-? def setupComponentReactor := <import:org.cubik.den.util.swing.setupComponentReactor>
+? def setupComponentReactor := <import:org.cubik.cle.aui.swing.setupComponentReactor>
 # value: <setupComponentReactor>
 
 ?# fixme: more updoc

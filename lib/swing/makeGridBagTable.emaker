@@ -53,7 +53,7 @@ def makeGridBagTable() :any {
   return gridBagTable
 }
 
-? def makeGridBagTable := <import:org.cubik.den.util.makeGridBagTable>
+? def makeGridBagTable := <import:org.cubik.cle.aui.swing.makeGridBagTable>
 # value: <makeGridBagTable>
 
 ?# fixme: more updoc

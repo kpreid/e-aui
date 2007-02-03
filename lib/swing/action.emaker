@@ -18,7 +18,7 @@ def action {
 }
 
 ? interp.waitAtTop(currentVat.morphInto("awt"))
-? def action := <import:org.cubik.den.util.action>
+? def action := <import:org.cubik.cle.aui.swing.action>
 # value: <action>
 
 ? def button := <swing:makeJButton>("Foo"); null
