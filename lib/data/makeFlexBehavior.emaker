@@ -15,6 +15,7 @@ def makeSlotPattern := <elang:evm.makeSlotPattern>
 def makeSeqExpr := <elang:evm.makeSeqExpr>
 def makeNounExpr := <elang:evm.makeNounExpr>
 def makeLiteralExpr := <elang:evm.makeLiteralExpr>
+def makeVarSlot := <elib:slot.makeSimpleSlot>
 def Slot := <type:org.erights.e.elib.slot.Slot>
 def ObjectExpr := <elang:evm.makeObjectExpr>.asType()
 def EMethod := <elang:evm.makeEMethod>.asType()
@@ -95,7 +96,7 @@ def makeFlexBehavior {
       /** Put a fresh VarSlot initialized to the given value in every instance. */
       to putVar(noun :String, value :any) {
         existantState.addElement(noun)
-        publishUpdate(def update(state) { state.put(noun, __makeVarSlot(value)) })
+        publishUpdate(def update(state) { state.put(noun, makeVarSlot(value)) })
       }
       
       # to maps(noun :String)
@@ -174,7 +175,7 @@ def makeFlexBehavior {
         
         def openObject match msg {
           switch (msg) {
-            match [verb, args] ? behavior.maps([verb, args.size()]) {
+            match [verb, args] ? (behavior.maps([verb, args.size()])) {
               
               follower.now()
               
@@ -194,7 +195,7 @@ def makeFlexBehavior {
             match [=="__printOn", [outU]] {
               def out := outU :TextWriter
               out.print("<")
-              out.print(initObjectExpr.getQualifiedName().split("$").last())
+              out.print(initObjectExpr.getOName().asText())
               out.print(">")
               null
             }
@@ -236,7 +237,7 @@ def makeFlexBehavior {
 #------------------------------------------------------------------------------
 
 ? def complexMethodical := makeFlexBehavior(e`
->   def "a.b$$foo" {
+>   def foo {
 >     method bar(arg :int) :float64 { arg + sta }
 >     method baz() :void { sta += 1 }
 >   }
@@ -245,7 +246,7 @@ def makeFlexBehavior {
 
 ? complexMethodical.asTypeDesc().getMessageTypes()
 
-? def cmic := complexMethodical.run(["sta" => __makeVarSlot(4)])
+? def cmic := complexMethodical.run(["sta" => <elib:slot.makeSimpleSlot>(4)])
 # value: <instanceController>
 
 ? def cmi := cmic.getObject()

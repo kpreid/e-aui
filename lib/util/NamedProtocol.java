@@ -7,8 +7,8 @@ import org.erights.e.elib.base.TypeDesc;
 import org.erights.e.elib.prim.E;
 import org.erights.e.elib.prim.StaticMaker;
 import org.erights.e.elib.serial.PassByConstruction;
-//import org.erights.e.elib.slot.Audition;
-import org.erights.e.elib.slot.AuditWitness;
+import org.erights.e.elib.slot.Audition;
+//import org.erights.e.elib.slot.AuditWitness;
 import org.erights.e.elib.slot.Auditor;
 import org.erights.e.elib.tables.ConstList;
 import org.erights.e.elib.tables.Selfless;
@@ -51,10 +51,10 @@ public class NamedProtocol extends TypeDesc implements PassByConstruction, Selfl
   /**
    * Used in a type's role as rubber-stamping auditor.
    */
-  public boolean audit(Object obj, AuditWitness witness) { return true; }
+  //public boolean audit(Object obj, AuditWitness witness) { return true; }
 
   /**
    * Used in a type's role as rubber-stamping auditor.
    */
-  //public boolean audit(Audition audition) { return true; }
+  public boolean audit(Audition audition) { return true; }
 }

@@ -21,7 +21,7 @@ def action {
 ? def action := <import:org.cubik.den.util.action>
 # value: <action>
 
-? def button := <swing:JButton>("Foo"); null
+? def button := <swing:makeJButton>("Foo"); null
 
 #? def a := action(button, thunk{ println("Foo") })
 ## value: <actionListener>

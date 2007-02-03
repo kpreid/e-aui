@@ -72,7 +72,7 @@ def makeFollower { # implements DeepFrozen
           } else if (chain == DiscardedChainMarker) {
             throw("now() may not be used on this follower")
           }
-          def [updater, next] := (chain, fn problem { bind status := Ref.broken(problem); return })
+          def [updater, next] exit fn problem { bind status := Ref.broken(problem); return } := chain
           chain := next
 
           try {
@@ -117,7 +117,7 @@ def makeFollower { # implements DeepFrozen
 # value: [1].diverge()
 
 ? bind next := [def _(x) :void { x.push(2) }, (def next2; next2)]
-# value: [<...__main$1>, <Promise>]
+# value: [<_>, <Promise>]
 
 ? follower.now()
 ? l
@@ -159,7 +159,7 @@ def makeFollower { # implements DeepFrozen
 # value: [1, 2, 3].diverge()
 
 ? bind next := [def _(x) :void { x.push(4) }, (def next2; next2)]
-# value: [<...__main$1>, <Promise>]
+# value: [<_>, <Promise>]
 
 ? l
 # value: [1, 2, 3, 4].diverge()
