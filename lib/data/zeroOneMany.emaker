@@ -34,7 +34,7 @@ def ZOM extends any[Zero, One, Many] {
     return def ZOM1 {
       to valueType() { return valueType }
       to coerce(sp, ej) {
-        def zom := super.coerce(sp)
+        def zom := super.coerce(sp, ej)
         if (sp == Zero || sp == Many) {
           return sp
         } else {
