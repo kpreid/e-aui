@@ -1,0 +1,25 @@
+# Copyright 2006 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
+                       ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
+
+#def makeLamportSlot := <import:org.erights.e.elib.slot.makeLamportSlot>
+def EverReporter := <type:org.erights.e.elib.slot.EverReporter>
+def makeStoneCast := <import:org.erights.e.facet.makeStoneCast>
+
+interface TypedReporterSlot extends EverReporter {
+  # XXX is it appropriate to duplicate the extends' method info here?
+  to valueType() :Guard
+}
+
+/** make something like a LamportSlot except that it publishes a guard and does not allow itself to be subscribed to a reporter. will not coerce values arriving from upstream. */
+def makeTypedReporterSlot(slot, Value) {
+  return def typedReporterSlot extends makeStoneCast(slot, EverReporter) {
+    to setValue(new) { slot.setValue(Value.coerce(new, null)) }
+    to valueType() { return Value }
+  }
+}
