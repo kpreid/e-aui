@@ -495,7 +495,7 @@ def presentENode(node, context) {
 def FlexList := <elib:tables.makeFlexList>.asType()
 def FlexSet := <elib:tables.makeFlexSet>.asType()
 def UpdatingFlexSet { to coerce(specimen, optEjector) {
-  if (specimen.__getAllegedType().getFQName() =~ `@_$$updatingFlexSet__C`) {
+  if (specimen.__getAllegedType().getFQName() =~ `@_$$updatingFlexSet`) {
     return specimen
   } else {
     throw.eject(optEjector, "not an UpdatingFlexSet")
@@ -517,11 +517,11 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
       match x :FinalSlot {
         context.subPresent(x.getValue(), context.quoting()) }
 
-      match s ? s.__respondsTo("whenUpdated", 2) { 
+      match s ? (s.__respondsTo("whenUpdated", 2)) { 
         # XXX should have a better way to discriminate
         presentEverReporter(s, context) }
   
-      #match x :near ? x.__respondsTo("paintIcon", 4) { # XXX better solution needed -- Java interfaces should respond to something like actuallyDeclared to give a restrictive guard
+      #match x :near ? (x.__respondsTo("paintIcon", 4)) { # XXX better solution needed -- Java interfaces should respond to something like actuallyDeclared to give a restrictive guard
       #  context.kit().text(x) }
         
       # broken - not all lamports hold ZOMs
@@ -536,7 +536,7 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
         presentSimpleMessageCommand(object, context) }
       match c :FlexArgCommand { 
         presentFACommandInSwing(object, context) }
-      match c :Command ? c.__respondsTo("run", 0) { 
+      match c :Command ? (c.__respondsTo("run", 0)) { 
         presentCompleteCommandInSwing(object, context) }
   
       match n :ENode {

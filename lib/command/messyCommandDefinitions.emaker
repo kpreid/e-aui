@@ -27,7 +27,7 @@ def [=> Zero, => One, => Many,
 
 interface TypedReporterSlot extends EverReporter {
   # XXX is it appropriate to duplicate the extends' method info here?
-  to valueType() :ValueGuard
+  to valueType() :Guard
 }
 
 /** make something like a LamportSlot except that it publishes a guard and does not allow itself to be subscribed to a reporter. will not coerce values arriving from upstream. */
