@@ -26,7 +26,7 @@ def makePresentationContext(::"delegate", present, seen, quoting, kit, privateBo
     
     to subPresentType(object, type, quoting) {
       def handleFailure(f) {
-        return try { f() } catch problem { kit.failedPresent(object, problem) }
+        return try { f() } catch problem { throw <- (problem); kit.failedPresent(object, problem) }
       }
     
       def key := toKey(object)
