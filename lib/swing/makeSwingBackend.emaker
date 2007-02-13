@@ -16,6 +16,7 @@ def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser
 def makePresentationContext  := <aui:present.makePresentationContext>
 def presentCommandRun        := <aui:present.presentCommandRun>
 def makeDataFlavor           := <awt:datatransfer.makeDataFlavor>
+def makeBrand                := <elib:sealing.makeBrand>
 
 def dumpComponents(c, out) {
   out.lnPrint(c.__getAllegedType())
@@ -44,6 +45,9 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   def makeJPopupMenu := <swing:makeJPopupMenu>
   def toolkit := <unsafeAwt:makeToolkit>.getDefaultToolkit()
   
+  def [contextPrivateSealer, contextPrivateUnsealer] := makeBrand("Swing backend wiring")
+  def contextPrivateBrand := contextPrivateSealer.getBrand()
+  
   def menuPresentKit {
     to button(name :String, actionThunk) {
       def component := <swing:makeJMenuItem>(name)
@@ -57,6 +61,32 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
       return makeImageIcon(resource)
     }
   }
+  
+  def stubPrivate := contextPrivateSealer.seal([
+    "addListeners" => fn component {},
+    "borderControlListener" => def sink { match msg {} },
+  ])
+  
+  def stubDelegate {
+    to newContext(object, context) {
+      return stubPrivate
+    }
+    to boundary(_, _, c) { 
+      return c 
+    }
+  }
+  
+  def menuContext := makePresentationContext(
+    stubDelegate,
+    Ref.broken("There is no generic presenter for menus."),
+    [].asSet(), false, menuPresentKit,
+    stubPrivate, contextPrivateBrand)
+
+  def iconContext := makePresentationContext(
+    stubDelegate,
+    defaultPresentIcon,
+    [].asSet(), false, iconPresentKit,
+    stubPrivate, contextPrivateBrand)
   
   # XXX this is generic and doesn't belong in the backend
   def runToWindow(title, command, originC) {
@@ -99,19 +129,20 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   }
   
   def addStandardEventHandlers(component, object, outerContext) {
+    def [hooks] := contextPrivateUnsealer.amplify(outerContext)
+    
     dragDropKit.setupLocalDragSource(component, thunk { object })
-    outerContext <- getHooks() <- get("addListeners") <- (component) # XXX this should not be deferred, but we have a cyclic dependency
+    hooks["addListeners"](component)
   
     attachContextMenu(component, thunk {
       def m := makeJPopupMenu()
-      def menuContext := makePresentationContext(fn _,_,c {[c,[].asMap()]}, Ref.broken("no generic present"), [].asSet(), false, [].asMap(), menuPresentKit)
       
       when (gatherCommands(object)) -> doCommandMenu(commands) {
         for command in commands {
           m."add(Component)"(presentAMCommand(command, menuContext, object))
         }
   
-        m.addPopupMenuListener(outerContext.getHooks()["borderControlListener"])
+        m.addPopupMenuListener(hooks["borderControlListener"])
   
         return m
       } catch p {
@@ -144,8 +175,6 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   
     /** XXX what does this name mean? */
     to plabel(name :String, optIconPresenter, context, object, getDoubleClickCommand) {
-    
-      def iconContext := makePresentationContext(fn _,_,c {[c,[].asMap()]}, defaultPresentIcon, [].asSet(), false, [].asMap(), iconPresentKit)
       def icon := if (optIconPresenter != null) {
         iconContext.subPresentType(object, optIconPresenter, false)
       } else { 
@@ -231,58 +260,76 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     makeColor."run(float, float, float)"(0.7, 0.7, 1.0),
     makeColor."run(float, float, float)"(0.4, 0.4, 0.7))
 
-  def makeSwingBoundary(object, context, content) {
-    def container := JPanel`$content`
-  
-    addStandardEventHandlers(container, object, context)
-  
-  
-    var mouseover := [].asSet()
-    var active := false
-  
-    def updateBorder() {
-      container.setBorder(
-        if (active) { activeBorder } else if (mouseover.size() > 0) { boundaryBorder } else { normalBorder } )
+  def swingDelegate {
+    to newContext(object, context) {
+      def container
+      var mouseover := [].asSet()
+      var active := false
+      
+      def updateBorder() {
+        container.setBorder(
+          if (active) { activeBorder } else if (mouseover.size() > 0) { boundaryBorder } else { normalBorder } )
+      }
+      
+      def addListeners(c) {
+        c.addMouseListener(def mouseOverUpdateListener {
+        to mouseEntered(event) :void { try {
+          mouseover with= mouseOverUpdateListener
+          updateBorder()
+          if (false) {
+            dumpComponents(c, stdout)
+            stdout.println()
+          }
+        } catch p { throw <- (p) } }
+        to mouseExited(event) :void { try {
+          mouseover without= mouseOverUpdateListener
+          updateBorder()
+        } catch p { throw <- (p) } }
+        match _ {}
+      })
+      }
+      
+      def borderControlListener { # XXX this needs renaming now
+        to popupMenuWillBecomeInvisible(e) { try { 
+          active := false
+          updateBorder()
+        } catch p { throw <- (p) } }
+        to popupMenuWillBecomeVisible(e) { try {
+          active := true
+          updateBorder()
+        } catch p { throw <- (p) } }
+        match msg {}
+      }
+      
+      return contextPrivateSealer.seal([
+        => borderControlListener, 
+        => addListeners,
+        => container,
+        => container__Resolver,
+        => updateBorder,
+      ])
     }
-    updateBorder()
-  
     
-    
-    def addListeners(c) {
-      c.addMouseListener(def mouseOverUpdateListener {
-      to mouseEntered(event) :void { try {
-        mouseover with= mouseOverUpdateListener
-        updateBorder()
-        if (false) {
-          dumpComponents(c, stdout)
-          stdout.println()
-        }
-      } catch p { throw <- (p) } }
-      to mouseExited(event) :void { try {
-        mouseover without= mouseOverUpdateListener
-        updateBorder()
-      } catch p { throw <- (p) } }
-      match _ {}
-    })
-    }
-    addListeners(container)
+    to boundary(object, context, content) {
+      def [[
+        => addListeners,
+        => container,
+        => container__Resolver,
+        => updateBorder
+      ] | _] := contextPrivateUnsealer.amplify(context)
+      
+     bind container := JPanel`$content`
+     updateBorder()
+     addListeners(container)
+     addStandardEventHandlers(container, object, context)
   
-    def borderControlListener { # XXX this needs renaming now
-      to popupMenuWillBecomeInvisible(e) { try { 
-        active := false
-        updateBorder()
-      } catch p { throw <- (p) } }
-      to popupMenuWillBecomeVisible(e) { try {
-        active := true
-        updateBorder()
-      } catch p { throw <- (p) } }
-      match msg {}
+      return container
     }
-  
-    return [container, [=> borderControlListener, => addListeners]]
   }
 
-  def rootContext := makePresentationContext(makeSwingBoundary, defaultPresentGeneral, [].asSet(), true, Ref.broken("no hooks"), presentKit)
+  def contextPrivateBox := contextPrivateSealer.seal(Ref.broken("no hooks in root context"))
+
+  def rootContext := makePresentationContext(swingDelegate, defaultPresentGeneral, [].asSet(), true, presentKit, contextPrivateBox, contextPrivateBrand)
 
   return bind backend {
     to getRootContext() { return rootContext }

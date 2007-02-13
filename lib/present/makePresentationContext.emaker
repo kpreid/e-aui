@@ -5,15 +5,20 @@ pragma.enable("easy-return")
 pragma.disable("explicit-result-guard")
 
 pragma.enable("anon-lambda")
+pragma.enable("noun-string")
 
 def toKey                    := <elib:tables.makeTraversalKey>
 
-def makePresentationContext(makePresentationBoundary, present, seen, quoting, hooks, kit) {
-
+def makePresentationContext(::"delegate", present, seen, quoting, kit, privateBox, privateBrand) {
+  
   return def presentationContext {
+    to __optSealedDispatch(brand) { return switch (brand) {
+      match ==privateBrand { privateBox }
+      match _ { null }
+    }}
+    
     to quoting() { return quoting }
     to kit() { return kit }
-    to getHooks() { return hooks } # XXX in the ideal system this should not exist
     
     to subPresent(object, quoting) {
       return presentationContext.subPresentType(object, present, quoting)
@@ -25,9 +30,17 @@ def makePresentationContext(makePresentationBoundary, present, seen, quoting, ho
       }
     
       def key := toKey(object)
-      def hooks
-      def subC := makePresentationContext(makePresentationBoundary, present, seen.with(key), quoting, hooks, kit)
-      def [c, bind hooks] := makePresentationBoundary(object, subC, if (seen.contains(key)) {
+      def subC
+      def subPrivateBox := ::"delegate".newContext(object, subC)
+      bind subC := makePresentationContext(
+        ::"delegate",
+        present,
+        seen.with(key),
+        quoting,
+        kit,
+        subPrivateBox,
+        privateBrand)
+      def c := ::"delegate".boundary(object, subC, if (seen.contains(key)) {
         handleFailure(fn { present("CYCLE", subC) })
       } else {
         handleFailure(fn { type(object, subC) })
