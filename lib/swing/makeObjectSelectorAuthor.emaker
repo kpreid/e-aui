@@ -3,9 +3,7 @@
 
 # originally from Den, stripped down
 
-pragma.enable("explicit-result-guard")
-pragma.disable("easy-return")
-
+pragma.syntax("0.8")
 pragma.enable("anon-lambda")
 pragma.enable("verb-curry")
 

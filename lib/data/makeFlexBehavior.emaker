@@ -1,9 +1,7 @@
 # Copyright 2006 Kevin Reid, under the terms of the MIT X license
 # found at http://www.opensource.org/licenses/mit-license.html ................
 
-pragma.enable("easy-return")
-pragma.disable("explicit-result-guard")
-
+pragma.syntax("0.9")
 pragma.enable("accumulator")
 
 def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
@@ -54,7 +52,7 @@ def makeFlexBehavior {
     def requiredState := [].asMap().diverge()
     def rsAdd(methodd) {
       for noun in methodStateUsed(methodd) {
-        requiredState[noun] := requiredState.fetch(noun, thunk { 0 }) + 1
+        requiredState[noun] := requiredState.fetch(noun, fn { 0 }) + 1
       }
     }
     def rsRemove(methodd) {
@@ -102,7 +100,7 @@ def makeFlexBehavior {
       # to maps(noun :String)
       to domain() { return existantState.readOnly() }
       to removeKey(noun :String) {
-        require(!requiredState.maps(noun), thunk{ `cannot delete noun ${E.toQuote(noun)} because a method refers to it` })
+        require(!requiredState.maps(noun), fn{ `cannot delete noun ${E.toQuote(noun)} because a method refers to it` })
         existantState.remove(noun)
         publishUpdate(def update(state) { state.removeKey(noun) })
       }
@@ -119,7 +117,7 @@ def makeFlexBehavior {
         # XXX TODO: We can loosen this restriction to allow adding arbitrary methods iff no instances have yet been made
         def used := methodStateUsed(methodd)
         require((def missingNames := used &! existantState).size() == 0,
-                thunk { `cannot add method without definitions for the slots ${missingNames.getElements()}: $methodd` })
+                fn { `cannot add method without definitions for the slots ${missingNames.getElements()}: $methodd` })
         
         def key := [methodd.getVerb(), methodd.getPatterns().size()]
         
@@ -132,7 +130,7 @@ def makeFlexBehavior {
       
       to removeKey(verb :String, arity :int) {
         def key := [verb, arity]
-        if (behavior.fetch(key, thunk{}) =~ methodd :notNull) {
+        if (behavior.fetch(key, fn{}) =~ methodd :notNull) {
           rsRemove(methodd)
           behavior.removeKey(key)
         }
@@ -302,11 +300,11 @@ def makeFlexBehavior {
 ? instance()
 # problem: no such method: run/0
 
-? behavior."methods"().addFrom(e`thunk { x }`)
+? behavior."methods"().addFrom(e`fn { x }`)
 # problem: cannot add method without definitions for the slots ["x"]: e??`
 
 ? behavior.state()["x"] := __makeFinalSlot(1)
-? behavior."methods"().addFrom(e`thunk { x }`)
+? behavior."methods"().addFrom(e`fn { x }`)
 
 ? instance()
 # value: 1
@@ -316,13 +314,13 @@ def makeFlexBehavior {
 ? behavior.state().removeKey("x")
 # problem: cannot delete noun "x" because a method refers to it
 
-? behavior."methods"().addFrom(e`thunk {}`)
+? behavior."methods"().addFrom(e`fn {}`)
 ? behavior.state().removeKey("x")
 
 # now, if we readd the state, even instances which have not been touched should have the new slots
 
 ? behavior.state()["x"] := __makeFinalSlot(2)
-? behavior."methods"().addFrom(e`thunk { x }`)
+? behavior."methods"().addFrom(e`fn { x }`)
 
 ? instance()
 # value: 2
@@ -339,7 +337,7 @@ def makeFlexBehavior {
 # value: <_>
 
 ? behavior.state().putVar("i", 0)
-? behavior."methods"().addFrom(e`thunk { i += 1 }`)
+? behavior."methods"().addFrom(e`fn { i += 1 }`)
 
 ? [i1(), i1()]
 # value: [1, 2]
@@ -349,7 +347,7 @@ def makeFlexBehavior {
 
 #------------------------------------------------------------------------------
 
-? def behavior := makeFlexBehavior(e`thunk { 1 }`)
+? def behavior := makeFlexBehavior(e`fn { 1 }`)
 # value: <flexBehavior>
 
 ? def instance := behavior().getObject()

@@ -1,7 +1,6 @@
 # originally from Den; the version there catches exceptions and presents them in a dialog.
 
-pragma.enable("explicit-result-guard")
-pragma.disable("easy-return")
+pragma.syntax("0.8")
 
 def action {
   to run(component, code) :void {
@@ -23,7 +22,7 @@ def action {
 
 ? def button := <swing:makeJButton>("Foo"); null
 
-#? def a := action(button, thunk{ println("Foo") })
+#? def a := action(button, fn{ println("Foo") })
 ## value: <actionListener>
 
 #? a.actionPerformed(null)

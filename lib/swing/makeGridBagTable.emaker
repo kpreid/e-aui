@@ -1,8 +1,7 @@
 # Copyright 2003-2004 Kevin Reid.
 # This source code and related files are distributed under the MIT License, as described in the document named "License.txt" which should be provided with this source distribution.
 
-pragma.enable("easy-return")
-pragma.disable("explicit-result-guard")
+pragma.syntax("0.9")
 
 def makeGridBagTable() :any {
   def tableContainer := <import:javax.swing.makeJPanel>(

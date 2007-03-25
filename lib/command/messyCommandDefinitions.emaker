@@ -1,13 +1,8 @@
 # Copyright 2006 Kevin Reid, under the terms of the MIT X license
 # found at http://www.opensource.org/licenses/mit-license.html ................
 
-pragma.enable("easy-return")
-pragma.disable("explicit-result-guard")
-
+pragma.syntax("0.9")
 pragma.enable("accumulator")
-pragma.enable("verb-curry")
-pragma.enable("easy-when")
-pragma.enable("anon-lambda")
 
 def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
                        ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
@@ -109,7 +104,7 @@ def makeFlexArgCommand {
       }
     }
 
-    bind availableSlot := whenever.dynamic(argZoSlots, thunk {
+    bind availableSlot := whenever.dynamic(argZoSlots, fn {
       escape ret {
         def &sub := flexArgCommand \
                       .snapshot(fn _ { ret([false, []]) }) \

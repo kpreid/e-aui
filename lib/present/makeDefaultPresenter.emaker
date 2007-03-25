@@ -1,13 +1,8 @@
 # Copyright 2006 Kevin Reid, under the terms of the MIT X license
 # found at http://www.opensource.org/licenses/mit-license.html ................
 
-pragma.enable("easy-return")
-pragma.disable("explicit-result-guard")
-
+pragma.syntax("0.9")
 pragma.enable("accumulator")
-pragma.enable("verb-curry")
-pragma.enable("easy-when")
-pragma.enable("anon-lambda")
 
 def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
                        ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
@@ -43,7 +38,7 @@ def presentGenericInSwing(object, context) {
     return if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
   }
 
-  def label := context.kit().plabel(computeText(), null, context, object, thunk {thunk {[null,null]}})
+  def label := context.kit().plabel(computeText(), null, context, object, fn {fn {[null,null]}})
 
   def update() { label.setText(computeText()) }
   
@@ -100,7 +95,7 @@ def presentTwine(object :Twine, context) {
   # XXX we need some sort of mechanism for indicating when not to truncate a string
   def t := if (context.quoting()) {E.toQuote(object)} else {E.toString(object)}
   def short := if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
-  return context.kit().plabel(short, fn _,_ {null}, context, object, thunk {thunk {[null,null]}})
+  return context.kit().plabel(short, fn _,_ {null}, context, object, fn {fn {[null,null]}})
 }
 
 def presentListY(list, context) {
@@ -273,7 +268,7 @@ def makeCompleteCommandUI(command :Command, editUI, context) {
   hole.setLayout(makeFlowLayout())
   hole.setPreferredSize(<awt:makeDimension>(320, 100))
 
-  def runButton := context.kit().button("Run", thunk {
+  def runButton := context.kit().button("Run", fn {
     hole.setPreferredSize(null)
     hole."add(Component)"(presentCommandRun(context, command.run()))
     hole.revalidate()

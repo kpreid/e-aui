@@ -1,7 +1,6 @@
 # originally from Den, stripped down
 
-pragma.enable("explicit-result-guard")
-pragma.disable("easy-return")
+pragma.syntax("0.8")
 
 def EverReactor              := <type:org.erights.e.elib.slot.EverReactor>
 

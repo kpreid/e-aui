@@ -1,5 +1,4 @@
-pragma.enable("easy-return")
-pragma.disable("explicit-result-guard")
+pragma.syntax("0.9")
 
 def makeUpdatingFlexMap {
   to run() {
@@ -59,7 +58,9 @@ def makeUpdatingFlexMap {
   }
 }
 
-? pragma.enable("easy-when")
+? pragma.syntax("0.9")
+
+? pragma.enable("hard-when")
 > def makeFollower := <import:org.cubik.cle.aui.data.makeFollower>
 > def makeReplica(source) :any {
 >   # NOTE: because the readOnly and storage are not customized, they cannot

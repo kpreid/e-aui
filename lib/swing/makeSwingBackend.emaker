@@ -1,10 +1,7 @@
 # Copyright 2006 Kevin Reid, under the terms of the MIT X license
 # found at http://www.opensource.org/licenses/mit-license.html ................
 
-pragma.enable("easy-return")
-pragma.disable("explicit-result-guard")
-
-pragma.enable("anon-lambda")
+pragma.syntax("0.9")
 
 def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
                        ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
@@ -102,11 +99,11 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
       match [sc :SimpleMessageCommand ? (sc.getRecipient() == selected), []] {
         def verb := sc.getVerb()
         [verb,
-         thunk { `$selected.$verb()` }]
+         fn { `$selected.$verb()` }]
       }
       match [subCmd, [==selected]] {
         [E.toQuote(subCmd),
-         thunk { `$subCmd($selected)` }]
+         fn { `$subCmd($selected)` }]
       }
       match [makeCmd :SimpleMessageCommand ? (makeCmd.getRecipient() == makeFlexArgCommand && makeCmd.getMessageDesc().getVerb() == "empty"), [subCmd :SimpleMessageCommand]] {
         # XXX present subCmd instead?
@@ -114,14 +111,14 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
         def verb := md.getVerb()
         def arity := md.getParams().size()
         [verb + "." * (2 + arity),
-         thunk { `$selected.$verb/$arity` }]
+         fn { `$selected.$verb/$arity` }]
       }
       match _ {
-        [def s := E.toQuote(command), thunk { s }]
+        [def s := E.toQuote(command), fn { s }]
       }
     }
   
-    def mi := context.kit().button(commandLabel, thunk {
+    def mi := context.kit().button(commandLabel, fn {
       runToWindow(resultLabelTh(), command, mi)
     })
   
@@ -131,24 +128,24 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   def addStandardEventHandlers(component, object, outerContext) {
     def [hooks] := contextPrivateUnsealer.amplify(outerContext)
     
-    dragDropKit.setupLocalDragSource(component, thunk { object })
+    dragDropKit.setupLocalDragSource(component, fn { object })
     hooks["addListeners"](component)
   
-    attachContextMenu(component, thunk {
+    attachContextMenu(component, fn {
       def m := makeJPopupMenu()
       
-      when (gatherCommands(object)) -> doCommandMenu(commands) {
+      when (def commands := gatherCommands(object)) -> {
         for command in commands {
           m."add(Component)"(presentAMCommand(command, menuContext, object))
         }
   
         m.addPopupMenuListener(hooks["borderControlListener"])
   
-        return m
+        m
       } catch p {
         toolkit.beep() # besides the tracelog
         throw <- (p)
-        return m
+        m
       }
     })
   }

@@ -1,9 +1,6 @@
 # originally from Den; the version there catches exceptions and presents them in a dialog.
 
-pragma.enable("explicit-result-guard")
-pragma.disable("easy-return")
-
-pragma.enable("easy-when")
+pragma.syntax("0.8")
 
 def attachContextMenu {
   to run(component, menuThunk) :void {
@@ -12,7 +9,7 @@ def attachContextMenu {
         if (e.__respondsTo("isPopupTrigger", 0) && e.isPopupTrigger()) {
           try {
             # XXX the offsets are a Macintosh UI convention so that the menu appears with no items under the cursor. this should probably be conditional.
-            when (menuThunk()) -> _(menu) :void {
+            when (def menu := menuThunk()) -> {
               menu.show(component, e.getX() + 2, e.getY() - 2)
             }
           } catch problem {

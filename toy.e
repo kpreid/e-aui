@@ -1,13 +1,8 @@
 # Copyright 2006 Kevin Reid, under the terms of the MIT X license
 # found at http://www.opensource.org/licenses/mit-license.html ................
 
-pragma.enable("easy-return")
-pragma.disable("explicit-result-guard")
-
+pragma.syntax("0.9")
 pragma.enable("accumulator")
-pragma.enable("verb-curry")
-pragma.enable("easy-when")
-pragma.enable("anon-lambda")
 
 def <aui> := <import:org.cubik.cle.aui.*>
 
@@ -38,8 +33,8 @@ bind gatherCommands(object) :vow[List[Command]] {
  
   def baseCommands := [makeCompleteCommand(openInSeparateWindow, [object])]
  
-  return when (object <- __getAllegedType()) -> _(allegedType) {
-    return accum baseCommands for desc ? (desc.getVerb().indexOf1("()"[0]) == -1) in allegedType.getMessageTypes() {
+  return when (def allegedType := object <- __getAllegedType()) -> {
+    accum baseCommands for desc ? (desc.getVerb().indexOf1("()"[0]) == -1) in allegedType.getMessageTypes() {
       _.with(makeArglessMessageCommand(object, desc))
     }
   }
@@ -71,12 +66,12 @@ def presentCaplet(capletFile) {
     
     def container := JPanel``
      
-    var takeContainer := thunk { container }
+    var takeContainer := fn { container }
     
     def makeCapletFrame {
       to run() {
         def ffOuter := takeContainer()
-        takeContainer := thunk { throw("multiple caplet frames not implemented yet") }
+        takeContainer := fn { throw("multiple caplet frames not implemented yet") }
 
         ffOuter.setBorder(def tb := borderFactory.createTitledBorder(capletName))
         ffOuter."add(Component)"(def userPane := JPanel``)
@@ -112,7 +107,7 @@ def presentCaplet(capletFile) {
             return [document]
           }
           match =="TRACELN" {
-            return def traceln {
+            return def capletTraceln {
               match [`run`, pieces] { 
                 def prefix := `$capletFile: `
                 def sub := stderr.indent(" " * prefix.size())
@@ -183,7 +178,7 @@ def openCommand
 
 def presentDirEntry(name) {
   return def present(file, context) {
-    return context.kit().plabel(name, null, context, file, thunk { makeCompleteCommand(openCommand, [file]) })
+    return context.kit().plabel(name, null, context, file, fn { makeCompleteCommand(openCommand, [file]) })
   }
 }
 
@@ -208,7 +203,7 @@ bind openCommand implements Command {
 
 def exampleFile := <file:/>
 
-rootsFlex["File Browser"] := thunk { 
+rootsFlex["File Browser"] := fn { 
   [exampleFile, presentDirectory]
 }
 
@@ -243,7 +238,7 @@ def presentSeqEval(seqEval, context) {
   return box
 }
 
-rootsFlex["Repl"] := thunk {
+rootsFlex["Repl"] := fn {
   [seqEval, presentSeqEval]
 } 
 
@@ -272,13 +267,13 @@ def makeClock(timer, resolution) {
 }
 
 # XXX needs a time-value type
-rootsFlex["Clock"] := thunk { 
+rootsFlex["Clock"] := fn { 
   [makeClock(timer, 1000), null]
 }
 
 # ------------------------------------------------------------------------------
 
-rootsFlex["Updating FlexSet"] := thunk {
+rootsFlex["Updating FlexSet"] := fn {
   def makeUpdatingFlexSet := <aui:data.makeUpdatingFlexSet>
   
   def uf := makeUpdatingFlexSet()
@@ -289,7 +284,7 @@ rootsFlex["Updating FlexSet"] := thunk {
 
 # ------------------------------------------------------------------------------
 
-rootsFlex["Things"] := thunk {
+rootsFlex["Things"] := fn {
   def exampleButtonCommand := makeArglessMessageCommand(def tk := <awt:makeToolkit>.getDefaultToolkit(), tk.__getAllegedType().getMessageTypes()["beep/0"])
 
   [[
@@ -303,13 +298,13 @@ rootsFlex["Things"] := thunk {
   ], null]
 }
 
-rootsFlex["Expression"] := thunk { 
+rootsFlex["Expression"] := fn { 
   def expr := e`
     pragma.enable("easy-return")
     pragma.disable("explicit-result-guard")
     def object extends 1.0 implements Example {
       to makeCounter() {
-        return { var x := 0; [thunk { x += 1 }, &x] }
+        return { var x := 0; [fn { x += 1 }, &x] }
       }
       to "exit"() {
         try { throw("biff") } catch p { throw(p) } finally { notice('q') }
@@ -340,7 +335,7 @@ def presentNamedRootMaker(name) {
   }
 
   return def namePresent(object, context) {
-    return context.kit().plabel(name, null, context, object, thunk { makeCompleteCommand(invokeCommand, [object]) })
+    return context.kit().plabel(name, null, context, object, fn { makeCompleteCommand(invokeCommand, [object]) })
   }
 }
 
