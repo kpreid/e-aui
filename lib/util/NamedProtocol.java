@@ -6,7 +6,7 @@ package org.cubik.cle.aui.util;
 import org.erights.e.elib.base.TypeDesc;
 import org.erights.e.elib.prim.E;
 import org.erights.e.elib.prim.StaticMaker;
-import org.erights.e.elib.serial.PassByConstruction;
+import org.erights.e.elib.serial.JOSSPassByConstruction;
 import org.erights.e.elib.slot.Audition;
 //import org.erights.e.elib.slot.AuditWitness;
 import org.erights.e.elib.slot.Auditor;
@@ -18,7 +18,7 @@ import org.erights.e.elib.tables.Selfless;
  * expressions, but that is Selfless, so that it is equal to identical
  * but separately created instances.
  */
-public class NamedProtocol extends TypeDesc implements PassByConstruction, Selfless {
+public class NamedProtocol extends TypeDesc implements JOSSPassByConstruction, Selfless {
 
     static private final StaticMaker maker =
       StaticMaker.make(NamedProtocol.class);
