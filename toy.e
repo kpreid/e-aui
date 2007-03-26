@@ -178,7 +178,7 @@ def openCommand
 
 def presentDirEntry(name) {
   return def present(file, context) {
-    return context.kit().plabel(name, null, context, file, fn { makeCompleteCommand(openCommand, [file]) })
+    return context.kit().plabel(name, null, fn { makeCompleteCommand(openCommand, [file]) })
   }
 }
 
@@ -335,7 +335,7 @@ def presentNamedRootMaker(name) {
   }
 
   return def namePresent(object, context) {
-    return context.kit().plabel(name, null, context, object, fn { makeCompleteCommand(invokeCommand, [object]) })
+    return context.kit().plabel(name, null, fn { makeCompleteCommand(invokeCommand, [object]) })
   }
 }
 

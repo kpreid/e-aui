@@ -21,21 +21,22 @@ def makePresentationContext(::"delegate", present, seen, quoting, kit, privateBo
     }
     
     to subPresentType(object, type, quoting) {
-      def handleFailure(f) {
-        return try { f() } catch problem { throw <- (problem); kit.failedPresent(object, problem) }
-      }
-    
       def key := toKey(object)
       def subC
-      def subPrivateBox := ::"delegate".newContext(object, subC)
+      def [subPrivateBox, subkit] := ::"delegate".newContext(object, subC)
       bind subC := makePresentationContext(
         ::"delegate",
         present,
         seen.with(key),
         quoting,
-        kit,
+        subkit,
         subPrivateBox,
         privateBrand)
+
+      def handleFailure(f) {
+        return try { f() } catch problem { throw <- (problem); subkit.failedPresent(problem) }
+      }
+
       def c := ::"delegate".boundary(object, subC, if (seen.contains(key)) {
         handleFailure(fn { present("CYCLE", subC) })
       } else {

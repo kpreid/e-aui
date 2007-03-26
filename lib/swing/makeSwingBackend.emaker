@@ -64,23 +64,28 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     "borderControlListener" => def sink { match msg {} },
   ])
   
-  def stubDelegate {
-    to newContext(object, context) {
-      return stubPrivate
-    }
-    to boundary(_, _, c) { 
-      return c 
-    }
-  }
-  
   def menuContext := makePresentationContext(
-    stubDelegate,
+    def menuDelegate {
+      to newContext(object, context) {
+        return [stubPrivate, menuPresentKit]
+      }
+      to boundary(_, _, c) { 
+        return c 
+      }
+    },
     Ref.broken("There is no generic presenter for menus."),
     [].asSet(), false, menuPresentKit,
     stubPrivate, contextPrivateBrand)
 
   def iconContext := makePresentationContext(
-    stubDelegate,
+    def iconDelegate {
+      to newContext(object, context) {
+        return [stubPrivate, iconPresentKit]
+      }
+      to boundary(_, _, c) { 
+        return c 
+      }
+    },
     defaultPresentIcon,
     [].asSet(), false, iconPresentKit,
     stubPrivate, contextPrivateBrand)
@@ -160,92 +165,94 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
         reactor])
   }
   
-  def presentKit {
-    to failedPresent(object, problem) {
-      # XXX this probably should not be in the kit at all, but a private provision to the presentation context
-      # XXX need to decide on a presentation for broken refs, that is distinct from this
-      # XXX make this look more internal-errorish. cf Squeak morph-drawing-error-morph
-      def label := presentKit.text(`Presenter: $problem`)
-      label.setBorder(borderFactory.createLineBorder(makeColor.getRed()))
-      return label
-    }
+  def makeComponentKit(object, context) {
+    return def presentKit {
+      to failedPresent(problem) {
+        # XXX this probably should not be in the kit at all, but a private provision to the presentation context
+        # XXX need to decide on a presentation for broken refs, that is distinct from this
+        # XXX make this look more internal-errorish. cf Squeak morph-drawing-error-morph
+        def label := presentKit.text(`Presenter: $problem`)
+        label.setBorder(borderFactory.createLineBorder(makeColor.getRed()))
+        return label
+      }
   
-    /** XXX what does this name mean? */
-    to plabel(name :String, optIconPresenter, context, object, getDoubleClickCommand) {
-      def icon := if (optIconPresenter != null) {
-        iconContext.subPresentType(object, optIconPresenter, false)
-      } else { 
-        iconContext.subPresent(object, false)
-      }
-    
-      # XXX object arg shouldn't be present; instead the context should be asked to install these things
-      def label := makeJLabel(name, icon, swingConstants.getLEADING())
-      
-      addStandardEventHandlers(label, object, context)
-      
-      label.addMouseListener(def doubleClickListener {
-        to mouseReleased(e) { try {
-          if (e.getClickCount() == 2) {
-            def command := getDoubleClickCommand()
-            runToWindow(E.toString(command), command, label)
-          }
-        } catch p { throw <- (p) } }
-        match _ {}
-      })
-      
-      return label
-    }
-    
-    to button(name :String, actionThunk) {
-      def component := <swing:makeJButton>(name)
-      action(component, actionThunk)
-      return component
-    }
-
-    /** XXX this ought to not exist here */
-    to getObjectSelectorPresenter() { return makeObjectSelector }
-
-    to dropTarget(handler) {
-      # XXX review the interface for this
-      def outer := JPanel``
-    
-      prepDrop(outer, def pdOuter(obj) {
-        try {
-          # XXX need a better way to cancel the drag
-          handler(obj, null)
-        } catch p { 
-          throw <- (p)
+      /** XXX what does this name mean? */
+      to plabel(name :String, optIconPresenter, getDoubleClickCommand) {
+        def icon := if (optIconPresenter != null) {
+          iconContext.subPresentType(object, optIconPresenter, false)
+        } else { 
+          iconContext.subPresent(object, false)
         }
-      })
-      outer.setBorder(borderFactory.createLoweredBevelBorder())
-      return outer
-    }
-
-    to text(s :String) {
-      return makeJLabel(s)
-    }
-
-    to _textLineCommandField(handler) {
-      def field := makeJTextField()
-      field.addKeyListener(def enterKeyListener {
-        to keyPressed(e) :void { try {
-          if (e.getKeyCode() == VK_ENTER) {
-            handler <- (field.getText())
-            field.setText("")
-          }
-        } catch p { throw <- (p) } }
-        match _ {}
-      })
-      return field
-    }
-
-    #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
-    match [dn ? (["x" => 0, "y" => 1] =~ [(dn) => dir]|_), components] {
-      def box := <swing:makeBox>(dir)
-      for c in components { 
-        box."add(Component)"(c) 
+    
+        # XXX object arg shouldn't be present; instead the context should be asked to install these things
+        def label := makeJLabel(name, icon, swingConstants.getLEADING())
+      
+        addStandardEventHandlers(label, object, context)
+      
+        label.addMouseListener(def doubleClickListener {
+          to mouseReleased(e) { try {
+            if (e.getClickCount() == 2) {
+              def command := getDoubleClickCommand()
+              runToWindow(E.toString(command), command, label)
+            }
+          } catch p { throw <- (p) } }
+          match _ {}
+        })
+      
+        return label
       }
-      box
+    
+      to button(name :String, actionThunk) {
+        def component := <swing:makeJButton>(name)
+        action(component, actionThunk)
+        return component
+      }
+
+      /** XXX this ought to not exist here */
+      to getObjectSelectorPresenter() { return makeObjectSelector }
+
+      to dropTarget(handler) {
+        # XXX review the interface for this
+        def outer := JPanel``
+    
+        prepDrop(outer, def pdOuter(obj) {
+          try {
+            # XXX need a better way to cancel the drag
+            handler(obj, null)
+          } catch p { 
+            throw <- (p)
+          }
+        })
+        outer.setBorder(borderFactory.createLoweredBevelBorder())
+        return outer
+      }
+
+      to text(s :String) {
+        return makeJLabel(s)
+      }
+
+      to _textLineCommandField(handler) {
+        def field := makeJTextField()
+        field.addKeyListener(def enterKeyListener {
+          to keyPressed(e) :void { try {
+            if (e.getKeyCode() == VK_ENTER) {
+              handler <- (field.getText())
+              field.setText("")
+            }
+          } catch p { throw <- (p) } }
+          match _ {}
+        })
+        return field
+      }
+
+      #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
+      match [dn ? (["x" => 0, "y" => 1] =~ [(dn) => dir]|_), components] {
+        def box := <swing:makeBox>(dir)
+        for c in components { 
+          box."add(Component)"(c) 
+        }
+        box
+      }
     }
   }
 
@@ -298,13 +305,16 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
         match msg {}
       }
       
-      return contextPrivateSealer.seal([
-        => borderControlListener, 
-        => addListeners,
-        => container,
-        => container__Resolver,
-        => updateBorder,
-      ])
+      return [
+        contextPrivateSealer.seal([
+          => borderControlListener, 
+          => addListeners,
+          => container,
+          => container__Resolver,
+          => updateBorder,
+        ]),
+        makeComponentKit(object, context)
+      ]
     }
     
     to boundary(object, context, content) {
@@ -326,11 +336,11 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
 
   def contextPrivateBox := contextPrivateSealer.seal(Ref.broken("no hooks in root context"))
 
-  def rootContext := makePresentationContext(swingDelegate, defaultPresentGeneral, [].asSet(), true, presentKit, contextPrivateBox, contextPrivateBrand)
+  def rootContext := makePresentationContext(swingDelegate, defaultPresentGeneral, [].asSet(), true, makeComponentKit(Ref.broken("no object"), rootContext), contextPrivateBox, contextPrivateBrand)
 
   return bind backend {
     to getRootContext() { return rootContext }
-    to getPresentKit() { return presentKit }
+
     /** XXX decide whether "Frame" name is to stay */
     to openFrame(title, component, optRel) {
       def frame := makeJFrame(title)

@@ -38,7 +38,7 @@ def presentGenericInSwing(object, context) {
     return if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
   }
 
-  def label := context.kit().plabel(computeText(), null, context, object, fn {fn {[null,null]}})
+  def label := context.kit().plabel(computeText(), null, fn {fn {[null,null]}})
 
   def update() { label.setText(computeText()) }
   
@@ -76,7 +76,7 @@ def presentSwitching(promise, context, after) {
       def sp := try { # XXX this is the same structure as in presentationContext.subPresentType
         after(promise, context) :notNull
       } catch problem {
-        context.kit().failedPresent(promise, problem)
+        context.kit().failedPresent(problem)
       }
       #throw <- (`about to add $sp for $promise, computed by $after`)
       hole."add(Component)"(sp)
@@ -95,7 +95,7 @@ def presentTwine(object :Twine, context) {
   # XXX we need some sort of mechanism for indicating when not to truncate a string
   def t := if (context.quoting()) {E.toQuote(object)} else {E.toString(object)}
   def short := if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
-  return context.kit().plabel(short, fn _,_ {null}, context, object, fn {fn {[null,null]}})
+  return context.kit().plabel(short, fn _,_ {null}, fn {fn {[null,null]}})
 }
 
 def presentListY(list, context) {
