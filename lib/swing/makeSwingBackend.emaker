@@ -277,20 +277,20 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
       
       def addListeners(c) {
         c.addMouseListener(def mouseOverUpdateListener {
-        to mouseEntered(event) :void { try {
-          mouseover with= mouseOverUpdateListener
-          updateBorder()
-          if (false) {
-            dumpComponents(c, stdout)
-            stdout.println()
-          }
-        } catch p { throw <- (p) } }
-        to mouseExited(event) :void { try {
-          mouseover without= mouseOverUpdateListener
-          updateBorder()
-        } catch p { throw <- (p) } }
-        match _ {}
-      })
+          to mouseEntered(event) :void { try {
+            mouseover with= mouseOverUpdateListener
+            updateBorder()
+            if (false) {
+              dumpComponents(c, stdout)
+              stdout.println()
+            }
+          } catch p { throw <- (p) } }
+          to mouseExited(event) :void { try {
+            mouseover without= mouseOverUpdateListener
+            updateBorder()
+          } catch p { throw <- (p) } }
+          match _ {}
+        })
       }
       
       def borderControlListener { # XXX this needs renaming now
