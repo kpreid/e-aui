@@ -10,6 +10,7 @@ def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].sp
 def <awt>                    := <import:java.awt.*>
 def <swing>                  := <import:javax.swing.*>
 def makeFollower             := <aui:data.makeFollower>
+def limitText                := <aui:data.limitText>
 def Command                  := <aui:command.Command>
 def messageDescForCommand    := <aui:command.messageDescForCommand>
 #def makeLamportSlot          := <import:org.erights.e.elib.slot.makeLamportSlot>
@@ -28,14 +29,14 @@ def [=> Zero, => One, => Many,
      => zero, => one, => many,
      => ZOM, => ZO] := <aui:data.zeroOneMany>
 
-def textLimit := 60
+def contentTextLimit := 60
 
 def presentGenericInSwing(object, context) {
   def quoted := context.quoting()
 
   def computeText() {
     def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
-    return if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
+    return limitText(t, contentTextLimit)
   }
 
   def label := context.kit().plabel(computeText(), null, fn {fn {[null,null]}})
@@ -94,7 +95,7 @@ def presentSwitching(promise, context, after) {
 def presentTwine(object :Twine, context) {
   # XXX we need some sort of mechanism for indicating when not to truncate a string
   def t := if (context.quoting()) {E.toQuote(object)} else {E.toString(object)}
-  def short := if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
+  def short := limitText(t, contentTextLimit)
   return context.kit().plabel(short, fn _,_ {null}, fn {fn {[null,null]}})
 }
 

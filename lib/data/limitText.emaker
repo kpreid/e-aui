@@ -1,0 +1,5 @@
+pragma.syntax("0.9")
+
+def limitText(t, limit) {
+  return if (t.size() > limit) { t(0, limit - 3) + "..." } else {t}
+}
