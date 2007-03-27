@@ -23,7 +23,7 @@ def makePresentationContext(::"delegate", present, seen, quoting, kit, privateBo
     to subPresentType(object, type, quoting) {
       def key := toKey(object)
       def subC
-      def [subPrivateBox, subkit] := ::"delegate".newContext(object, subC)
+      def [subPrivateBox, subkit] := ::"delegate".newContext(object, subC, presentationContext)
       bind subC := makePresentationContext(
         ::"delegate",
         present,

@@ -66,7 +66,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   
   def menuContext := makePresentationContext(
     def menuDelegate {
-      to newContext(object, context) {
+      to newContext(object, context, _) {
         return [stubPrivate, menuPresentKit]
       }
       to boundary(_, _, c) { 
@@ -79,7 +79,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
 
   def iconContext := makePresentationContext(
     def iconDelegate {
-      to newContext(object, context) {
+      to newContext(object, context, _) {
         return [stubPrivate, iconPresentKit]
       }
       to boundary(_, _, c) { 
@@ -265,7 +265,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     makeColor."run(float, float, float)"(0.4, 0.4, 0.7))
 
   def swingDelegate {
-    to newContext(object, context) {
+    to newContext(object, context, enclosingContext) {
       def container
       var mouseover := [].asSet()
       var active := false
@@ -307,10 +307,12 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
       
       return [
         contextPrivateSealer.seal([
-          => borderControlListener, 
           => addListeners,
+          => enclosingContext,
+          => borderControlListener, 
           => container,
           => container__Resolver,
+          => object,
           => updateBorder,
         ]),
         makeComponentKit(object, context)
@@ -334,7 +336,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     }
   }
 
-  def contextPrivateBox := contextPrivateSealer.seal(Ref.broken("no hooks in root context"))
+  def contextPrivateBox := contextPrivateSealer.seal([].asMap())
 
   def rootContext := makePresentationContext(swingDelegate, defaultPresentGeneral, [].asSet(), true, makeComponentKit(Ref.broken("no object"), rootContext), contextPrivateBox, contextPrivateBrand)
 
