@@ -10,6 +10,7 @@ def <swing>                  := <import:javax.swing.*>
 
 
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
+def limitText                := <aui:data.limitText>
 def makePresentationContext  := <aui:present.makePresentationContext>
 def presentCommandRun        := <aui:present.presentCommandRun>
 def makeDataFlavor           := <awt:datatransfer.makeDataFlavor>
@@ -49,6 +50,11 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     to button(name :String, actionThunk) {
       def component := <swing:makeJMenuItem>(name)
       action(component, actionThunk)
+      return component
+    }
+    to text(text :String) {
+      def component := <swing:makeJMenuItem>(text)
+      component.setEnabled(false)
       return component
     }
   }
@@ -125,6 +131,24 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     return mi
   }
   
+  def deepGatherCommands(menu, context) {
+    escape stop {
+      def [[=> enclosingContext, => object] |_] exit stop := 
+        contextPrivateUnsealer.amplify(context)
+      return when (def commands := gatherCommands(object)) -> {
+        menu."add(Component)"(
+          menuPresentKit.text(`(${limitText(E.toQuote(object), 30)})`)) 
+        # XXX polish title
+        for command in commands {
+          menu."add(Component)"(presentAMCommand(command, menuContext, object))
+        }
+        deepGatherCommands(menu, enclosingContext)
+      } 
+    } catch _ {
+      return
+    }
+  }
+  
   def addStandardEventHandlers(component, object, outerContext) {
     def [hooks] := contextPrivateUnsealer.amplify(outerContext)
     
@@ -132,15 +156,9 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     hooks["addListeners"](component)
   
     attachContextMenu(component, fn {
-      def m := makeJPopupMenu()
-      
-      when (def commands := gatherCommands(object)) -> {
-        for command in commands {
-          m."add(Component)"(presentAMCommand(command, menuContext, object))
-        }
-  
+      def m := makeJPopupMenu()      
+      when (deepGatherCommands(m, outerContext)) -> {
         m.addPopupMenuListener(hooks["borderControlListener"])
-  
         m
       } catch p {
         toolkit.beep() # besides the tracelog
