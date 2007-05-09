@@ -490,7 +490,11 @@ def presentENode(node, context) {
 def FlexList := <elib:tables.makeFlexList>.asType()
 def FlexSet := <elib:tables.makeFlexSet>.asType()
 def UpdatingFlexSet { to coerce(specimen, optEjector) {
-  if (specimen.__getAllegedType().getFQName() =~ `@_$$updatingFlexSet`) {
+  if (try {
+        specimen.__getAllegedType().getFQName() 
+      } catch p {
+        throw.eject(optEjector, p)
+      } =~ `@_$$updatingFlexSet`) {
     return specimen
   } else {
     throw.eject(optEjector, "not an UpdatingFlexSet")
