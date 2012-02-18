@@ -1,0 +1,40 @@
+# Copyright 2006 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+pragma.enable("anon-lambda")
+
+def presentFlexSet(flexSet, context) {
+  # This is correct if nothing else modifies the list. XXX add mouseover refreshes/refresh button. XXX we need a general UI convention
+  
+  def kit := context.kit()
+  def box := kit.y()
+  
+  def refresh() {
+    box.removeAll()
+    for item in flexSet {
+      def entryFacet {
+        to delete() { 
+          refresh <- ()
+          flexSet.remove(item)
+        }
+        to getValue() { return item }
+      }
+      box."add(Component)"(context.subPresentType(entryFacet, fn _,c {c.subPresent(entryFacet.getValue(), context.quoting())}, false))
+      
+    }
+    box."add(Component)"(kit.dropTarget(def addElement(new, _) { 
+      refresh <- ()
+      flexSet.addElement(new)
+    }))
+    
+    box.revalidate()
+    box.repaint(box.getVisibleRect()) # *sigh*, why is this necessary?
+  }
+
+  refresh()
+  
+  return box
+}

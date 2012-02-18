@@ -1,0 +1,62 @@
+#!/usr/bin/env rune
+
+# Copyright 2002 Combex, Inc. under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+
+def <awt> := <import:java.awt.*>
+def <swing> := <import:javax.swing.*>
+def <aui> := <import:org.cubik.cle.aui.*>
+def JPanel__quasiParser := <import:org.erights.ex.swing.JPanel__quasiParser>
+
+def makeSwingBackend := <aui:swing.makeSwingBackend>
+
+def uiCapletAuthor {
+    to getRequestedCaps() :near {
+       return "<requests>
+                <pet>
+                  <name>ObjectUI</name>
+                  <suffix>auif</suffix>
+                  <icon>data/icon.gif</icon>
+                </pet>
+              </requests>"
+    }
+    to run(powerbox) :near {
+        def traceline := powerbox.optCap(powerbox.getTRACELN())
+        traceline("made it to uiCaplet author run")
+
+        def frameMaker := powerbox.optCap(powerbox.getFRAME_MAKER())
+        def awtDropTarget := powerbox.optCap(powerbox.getDROP_TARGET())
+
+        def <unsafeAwt> := [
+          "dnd.makeDropTarget" => awtDropTarget,
+          "dnd.makeDnDConstants" => <awt:dnd.makeDnDConstants>,
+          "dnd.makeDragSource" => def makeDragSource {
+            to getDefaultDragSource() { return def defaultDragSource {
+              to createDefaultDragGestureRecognizer(_, _, _) { return def defaultDragGestureRecognizer {} }
+            } }
+          }]
+        def <unsafeSwing> := ["makeJFrame" => frameMaker]
+
+        def gatherCommands := Ref.broken("no gatherCommands")
+        def auiCommon := <aui:command.messyCommandDefinitions> \
+                    | <aui:data.zeroOneMany> \
+                    | [=> gatherCommands]
+        
+        def backend := makeSwingBackend(<unsafeAwt>, <unsafeSwing>, <aui:present.makeDefaultPresenter>(auiCommon), <aui:present.makeDefaultIconPresenter>(), auiCommon)
+
+        def uiCaplet {
+        }
+        
+        backend.openFrame(`Initial Window`, backend.getRootContext().subPresent([0, 1, false, true, [].asMap()], true), null)
+        
+        for i => each in powerbox.optCap(powerbox.getINITIAL_DOC_RCVRS()) {
+          backend.openFrame(`Initial Object #$i`, backend.getRootContext().subPresent(each, true), null)
+        }
+        
+        return uiCaplet
+    }
+}
