@@ -41,8 +41,12 @@ def presentGenericInSwing(object, context) {
 
   def label := context.kit().plabel(computeText(), null, fn {fn {[null,null]}})
 
-  def update() { label.setText(computeText()) }
-  
+  def update() {
+    if (label.__respondsTo("setText", 1)) { # XXX temporary conditional for swt
+      label.setText(computeText())
+    }
+  }
+
   if (!Ref.isResolved(object)) {
     Ref.whenResolved(object, def done(_) :void {
       update()
@@ -50,16 +54,18 @@ def presentGenericInSwing(object, context) {
   }
   update()
 
-  label.addMouseListener(def mouseOverUpdateListener {
-    to mouseEntered(event) :void {
-      try {
-        update()
-      } catch problem {
-        throw <- (problem) # reach tracelog
+  if (label.__respondsTo("addMouseListener", 1)) { # XXX temporary conditional for swt
+    label.addMouseListener(def mouseOverUpdateListener {
+      to mouseEntered(event) :void {
+        try {
+          update()
+        } catch problem {
+          throw <- (problem) # reach tracelog
+        }
       }
-    }
-    match _ {}
-  })
+      match _ {}
+    })
+  }
   
   return label
 }

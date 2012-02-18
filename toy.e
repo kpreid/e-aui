@@ -4,6 +4,7 @@
 pragma.syntax("0.9")
 pragma.enable("accumulator")
 
+stderr.println(`beginning setup. args: ${interp.getArgs()}`)
 def <aui> := <import:org.cubik.cle.aui.*>
 
 def makeLamportSlot := <import:org.erights.e.elib.slot.makeLamportSlot>
@@ -46,10 +47,102 @@ def presentDefault := <aui:present.makeDefaultPresenter>(auiCommon)
 
 # "backend" name borrowed from McCLIM
 
-if (currentVat.getRunnerKind() != "awt") {
-  interp.waitAtTop(currentVat.morphInto("awt"))
+def presentDefault
+def presentAsIcon
+
+def makeSWTBackend() {
+  def Composite := <type:org.eclipse.swt.widgets.Composite>
+  
+  /** guarantee that the composite will not be used except in specifying parents */
+  interface SWTBuilder guards SWTBuilderStamp {
+    to run(composite :Composite)
+  }
+  
+  def presentKit {
+    to plabel(text, optIconPresenter, context, object, getDoubleClickCommand) {
+      return def plabelBuilder implements SWTBuilderStamp { to run(parent) {
+        return <swt:widgets.makeLabel>(parent, 0)
+      }}
+    }
+  
+    match [dn ? (["x" => <swt:SWT>.getHORIZONTAL(), "y" => <swt:SWT>.getVERTICAL()] =~ [(dn) => dir]|_), components] {
+      def rowBuilder implements SWTBuilderStamp { to run(parent) {
+        def container := <swt:widgets.makeComposite>(parent, 0)
+        container.setLayout(<swt:layout.makeRowLayout>(dir))
+        for c in components {
+          (c :SWTBuilder)(container)
+        }
+        return container
+      }}
+    }
+    
+    match msg { throw(`no such method: $msg`) } # XXX hack for more exception info
+  }
+  
+  def makeSWTBoundary(object, context, content) { return [content, Ref.broken("no hooks in swt yet")] }
+  
+  # XXX rename presentDefault
+  def rootContext := makePresentationContext(makeSWTBoundary, presentDefault, [].asSet(), true, Ref.broken("no hooks"), presentKit)
+
+  def display := currentDisplay
+
+  return def backend {
+    to getRootContext() { return rootContext }
+
+    to openFrame(title, component, optRel) {
+      # XXX use optRel
+      stderr.println(`openFrame $title start`)
+      def shell := <swt:widgets.Shell>(display)
+      stderr.println(`openFrame $title setting title`)
+      shell.setText(title)
+      stderr.println(`openFrame $title building contents`)
+      (component :SWTBuilder)(shell)
+      stderr.println(`openFrame $title displaying`)
+      shell.open()
+      stderr.println(`openFrame $title done`)
+      shell
+    }
+  }
 }
-def backend := <aui:swing.makeSwingBackend>(<awt>, <swing>, presentDefault, <aui:present.makeDefaultIconPresenter>(), auiCommon, stdout)
+
+def [backendType] := interp.getArgs()
+
+stderr.println(`setting up $backendType UI`)
+def ensureRunnerKind(kind) {
+  if (currentVat.getRunnerKind() != kind) {
+    interp.waitAtTop(currentVat.morphInto(kind))
+  }
+}
+if (backendType != "swt") {
+  ensureRunnerKind("awt")
+}
+if (backendType == "swt") {
+  ensureRunnerKind("swt")
+}
+def backend := ["swing" => thunk { <aui:swing.makeSwingBackend>(<awt>, <swing>, presentDefault, <aui:present.makeDefaultIconPresenter>(), auiCommon, stdout) },
+                "swt" => makeSWTBackend][backendType]()
+
+stderr.println(`done backend: $backend`)
+
+# ------------------------------------------------------------------------------
+
+bind presentDefault := <aui:present.makeDefaultPresenter>(auiCommon)
+
+# ------------------------------------------------------------------------------
+
+# Icons
+
+# XXX TODO: reestablish caching of icons. how can this be made compatible with context-specific presentation?
+bind presentAsIcon(object, context) {
+  def kit := context.kit()
+  return switch (object) {
+    match f :File {
+      f.isDirectory().pick(kit.image(<resource:com/skyhunter/capDesk/icons/folder.gif>), 
+                           kit.image(<resource:com/skyhunter/capDesk/icons/noLauncher.gif>))
+    }
+    match _ { kit.image(<resource:org/cubik/cle/aui/swing/item.gif>) }
+  }
+}
 
 def rootsFlex := [].asMap().diverge()
 
@@ -57,9 +150,9 @@ def rootsFlex := [].asMap().diverge()
 
 def parse := e__quasiParser
 
-def borderFactory := <swing:makeBorderFactory>
-def awtDropTarget := <awt:dnd.makeDropTarget>
+def borderFactory := <import:javax.swing.makeBorderFactory>
 def presentCaplet(capletFile) {
+  def awtDropTarget := <awt:dnd.makeDropTarget>
   def capletAuthor := parse(capletFile.getTwine()).eval(safeScope)
   def capletName := E.toString(capletFile)
   return def presenter(document, context) {
@@ -348,3 +441,7 @@ def presentRoots(map, context) {
 }
 
 backend.openFrame("Roots", backend.getRootContext().subPresentType(roots, presentRoots, false), null) 
+
+stderr.println(`finished setup`)
+
+interp.blockAtTop()
