@@ -2,6 +2,7 @@
 # found at http://www.opensource.org/licenses/mit-license.html ................
 
 pragma.syntax("0.9")
+pragma.enable("accumulator")
 
 def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
                        ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
@@ -15,6 +16,11 @@ def makePresentationContext  := <aui:present.makePresentationContext>
 def presentCommandRun        := <aui:present.presentCommandRun>
 def makeDataFlavor           := <awt:datatransfer.makeDataFlavor>
 def makeBrand                := <elib:sealing.makeBrand>
+def [=> Zero, => One, => Many,
+     => zero, => one, => many,
+     => ZOM, => ZO]          := <aui:data.zeroOneMany>
+def makeTypedReporterSlot    := <aui:data.makeTypedReporterSlot>
+def makeLamportSlot          := <elib:slot.makeLamportSlot>
 
 def dumpComponents(c, out) {
   out.lnPrint(c.__getAllegedType())
@@ -39,8 +45,11 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   def dragDropKit := <import:com.skyhunter.e.awt.dnd.dragDropKit>(<unsafeAwt>, def _(_) {})
   def attachContextMenu := <aui:swing.attachContextMenu>
   def VK_ENTER := <awt:event.makeKeyEvent>.getVK_ENTER()
+  def makeJScrollPane := <swing:makeJScrollPane>
+  def makeJTable := <swing:makeJTable>
   def makeJTextField := <swing:makeJTextField>
   def makeJPopupMenu := <swing:makeJPopupMenu>
+  def makeTableModelEvent := <swing:event.makeTableModelEvent>
   def toolkit := <unsafeAwt:makeToolkit>.getDefaultToolkit()
   
   def [contextPrivateSealer, contextPrivateUnsealer] := makeBrand("Swing backend wiring")
@@ -244,7 +253,96 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
         outer.setBorder(borderFactory.createLoweredBevelBorder())
         return outer
       }
+    
+      to table(context, presenter, rows :List) {
+        # XXX missing functions:
+        #   table model events
+        #   column detection/add/remove
+        #   varying row collection
+        #   proper cache flushing -- we need to discard items when out of view, even if they never change and so never trigger the flush-on-lack-of-interest
+        #     -- maybe just keep only a range around the currently-visible area?
 
+        var columns := [fn x { makeLamportSlot(one(x[0])).readOnly() }, fn x { makeLamportSlot(one(x[1])).readOnly() }]
+        var listeners := [].asSet()
+      
+        def fire(event) {
+          for listener in listeners {
+            try { listener.tableChanged(event) } catch p { throw <- (p) }
+          }
+        }
+      
+        def cache := [].asMap().diverge()
+        def cellData(column, row) {
+          return cache.fetch(
+            [column, row],
+            fn { cache[[column, row]] := {
+              def &columnValueZom := column <- (row)
+              [makeLamportSlot.localShadow(
+                 (&columnValueZom) <- getValue(),
+                 &columnValueZom),
+               {var willPost := false; &willPost}]
+            }}
+          )
+        }
+      
+        def tableModel {
+          to addTableModelListener(new) { listeners with= new }
+          to getColumnClass(index :(int >= 0)) { return <type:java.lang.Object> }
+          to getColumnCount() { return columns.size() }
+          to getColumnName(index :(int >= 0)) { return E.toString(columns[index]) }
+          to getRowCount() { return rows.size() }
+          to getValueAt(rowI, columnI) { 
+            try {
+              def key := [columns[columnI], rows[rowI]]
+              #stdout.println(`getValue $key`)
+              def [slot, &willPost] := cellData(columns[columnI], rows[rowI])
+              def [value, generation] := slot.getCurrent()
+              if (!willPost) {
+                #stdout.println(`registering`)
+                slot <- whenUpdated(def reactor {
+                  to reactToUpdate(_, _, _) {
+                    #stdout.println(`reacting $key`)
+                    fire(makeTableModelEvent(tableModel, rowI, rowI, columnI))
+                    willPost := false
+                    fn {
+                      #stdout.println(`flush test $key`)
+                      if (!willPost) {
+                        cache.removeKey(key)
+                        stdout.println(`flushing cache of $key`)
+                      }
+                    } <- ()
+                  }
+                }, generation)
+                willPost := true
+              }
+              return value
+            } catch p {
+              throw <- (p)
+              return null
+            }
+          }
+          to isCellEditable(rowI :(int >= 0), columnI :(int >= 0)) {
+            try {
+              return cellData(columns[columnI], rows[rowI])[0].__respondsTo("put", 1)
+            } catch p {
+              throw <- (p)
+              return false
+            }
+          }
+          to removeTableModelListener(old) { listeners without= old }
+          to setValueAt(new, rowI :(int >= 0), columnI :(int >= 0)) { 
+            try {
+              cellData(columns[columnI], rows[rowI])[0][] := new
+            } catch p {
+              throw <- (p)
+            }
+          }
+        }
+      
+        def table := makeJTable(tableModel)
+        return makeJScrollPane(table)
+      }
+    
       to text(s :String) {
         return makeJLabel(s)
       }
@@ -365,7 +463,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     to openFrame(title, component, optRel) {
       def frame := makeJFrame(title)
     
-      def sp := <swing:makeJScrollPane>()
+      def sp := makeJScrollPane()
         #sp.setPreferredSize(<awt:Dimension>(320,320))
         #sp.setVerticalScrollBarPolicy(<swing:ScrollPaneConstants>.getVERTICAL_SCROLLBAR_ALWAYS())
       sp.getViewport()."add(Component)"(component)

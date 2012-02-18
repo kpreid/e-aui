@@ -176,16 +176,16 @@ def presentCaplet(capletFile) {
 
 def openCommand
 
-def presentDirEntry(name) {
-  return def present(file, context) {
-    return context.kit().plabel(name, null, fn { makeCompleteCommand(openCommand, [file]) })
-  }
+def presentDirEntry([name, file], context) {
+  # XXX need to subPresent file instead
+  return context.kit().plabel(name, null, fn { makeCompleteCommand(openCommand, [file]) })
 }
 
 def presentDirectory(dir, context) {
-  def container := E.call(context.kit(), "y",
+  def container := context.kit().table(
+    context, presentDirEntry,
     accum [] for name => file in dir {
-      _.with(context.subPresentType(file, presentDirEntry(name), true))
+      _.with([name, file])
     })
   return container
 }
