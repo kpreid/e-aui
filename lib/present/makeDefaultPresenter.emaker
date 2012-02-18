@@ -25,35 +25,123 @@ def gbc                      := <awt:makeGridBagConstraints>
 def makeInsets               := <awt:makeInsets>
 def makeBox                  := <swing:makeBox>
 def makeFlowLayout           := <awt:makeFlowLayout>
+def makeTextWriter           := <elib:oldeio.makeTextWriter>
 def [=> Zero, => One, => Many,
      => zero, => one, => many,
      => ZOM, => ZO] := <aui:data.zeroOneMany>
 
 def contentTextLimit := 60
 
-def presentGenericInSwing(object, context) {
-  def quoted := context.quoting()
+#def presentGenericInSwing(object, context) {
+#  def quoted := context.quoting()
+#
+#  def computeText() {
+#    def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
+#    return limitText(t)
+#  }
+#
+#  def label := context.kit().plabel(computeText(), null, context, object, fn {fn {[null,null]}})
+#
+#  def update() { label.setText(computeText()) }
+#  
+#  if (!Ref.isResolved(object)) {
+#    Ref.whenResolved(object, def done(_) :void {
+#      update()
+#    })
+#  }
+#  update()
+#
+#  label.addMouseListener(def mouseOverUpdateListener {
+#    to mouseEntered(event) :void {
+#      try {
+#        update()
+#      } catch problem {
+#        throw <- (problem) # reach tracelog
+#      }
+#    }
+#    match _ {}
+#  })
+#  
+#  return label
+#}
 
-  def computeText() {
-    def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
-    return limitText(t, contentTextLimit)
-  }
-
-  def label := context.kit().plabel(computeText(), null, fn {fn {[null,null]}})
-
-  def update() { label.setText(computeText()) }
+def presentGeneric(object, context) {
+  def flow := kit.flow()
   
+  def rebuild() {
+    flow.removeAll()
+
+    def prod() {
+      flow.revalidate()
+      flow.repaint(flow.getVisibleRect())
+    }
+
+    def [fallbackTextWriter, buffer] := makeTextWriter.makeBufferingPair()
+    
+    def flushFallback() {
+      if (buffer.size().aboveZero()) {
+        # XXX allow for word breaks and newlines
+        flow."add(Component)"(context.kit().plabel(limitText(buffer.snapshot()), null, fn {fn {[null, null]}}))
+        prod()
+        buffer.delete(0, buffer.size())
+      }
+    }
+    
+    def presentationWriter {
+      to __conformTo(guard) { return switch (guard) {
+        match ==TextWriter { fallbackTextWriter }
+        match _ { presentationWriter }
+      }}
+      
+      to write(s :String) {
+        fallbackTextWriter.print(s)
+      }
+      to print(obj) {
+        if (obj =~ s :String ? (s == obj)) {
+          fallbackTextWriter.print(s)
+        } else {
+          flushFallback()
+          flow."add(Component)"(context.subPresent(obj, false))
+          prod()
+        }
+      }
+      to quote(obj) {
+        flushFallback()
+        flow."add(Component)"(context.subPresent(obj, true))
+        prod()
+      }
+      to println(obj) {
+        flushFallback()
+        presentationWriter.print(obj) # XXX line break
+      }
+      to lnPrint(obj) {
+        flushFallback()
+        presentationWriter.print(obj) # XXX line break
+      }
+      
+      match [=="print", objs] { for obj in objs { presentationWriter.print(obj) }}
+      match [=="quote", objs] { for obj in objs { presentationWriter.quote(obj) }}
+    }
+    
+    when (def r := object <- __printOn(presentationWriter)) -> {
+      flushFallback()
+    } catch p {
+      flow."add(Component)"(context.subPresent(Ref.broken(p))) # XXX appropriate marking needed
+    }
+  }
+  
+  rebuild()
+
   if (!Ref.isResolved(object)) {
     Ref.whenResolved(object, def done(_) :void {
-      update()
+      rebuild()
     })
   }
-  update()
 
-  label.addMouseListener(def mouseOverUpdateListener {
-    to mouseEntered(event) :void {
+  flow.addMouseListener(def mouseOverUpdateListener {
+    to mouseEntered(_) :void {
       try {
-        update()
+        rebuild()
       } catch problem {
         throw <- (problem) # reach tracelog
       }
@@ -61,11 +149,11 @@ def presentGenericInSwing(object, context) {
     match _ {}
   })
   
-  return label
+  return flow
 }
 
 def presentSwitching(promise, context, after) {
-  def placeholder := presentGenericInSwing(promise, context)
+  def placeholder := presentGeneric(promise, context)
 
   def hole := context.kit().x(placeholder)
   
@@ -469,7 +557,7 @@ def presentENode(node, context) {
       } else if (matchers =~ [plumber]) {
         return subp(plumber)
       } else {
-        presentGenericInSwing(Ref.broken("confused EScript"))
+        presentGeneric(Ref.broken("confused EScript"))
       }
     }
     to visitEMethod(_, docComment, verb, params, optResultGuard, body) {
@@ -483,7 +571,7 @@ def presentENode(node, context) {
                     ${JPanel``}.Y         ${block(subp(body))}.X.Y`
     }
     match _ {
-      return presentGenericInSwing(node, context)
+      return presentGeneric(node, context)
     }
   })
 }
@@ -543,7 +631,7 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
         presentENode(n, context) }
   
       match _ { 
-        presentGenericInSwing(object, context) }
+        presentGeneric(object, context) }
     }
   }
 }

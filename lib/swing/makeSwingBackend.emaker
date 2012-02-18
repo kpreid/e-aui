@@ -249,6 +249,12 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
         return makeJLabel(s)
       }
 
+      to flow() {
+        def c := makeJPanel()
+        addStandardEventHandlers(c, object, context)
+        return c
+      }
+
       to _textLineCommandField(handler) {
         def field := makeJTextField()
         field.addKeyListener(def enterKeyListener {
