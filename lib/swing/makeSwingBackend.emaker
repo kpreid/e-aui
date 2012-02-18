@@ -2,6 +2,7 @@
 # found at http://www.opensource.org/licenses/mit-license.html ................
 
 pragma.syntax("0.9")
+pragma.enable("one-method-object")
 
 def <aui> := <import>[{def mqn := meta.context().getFQNPrefix().split("$")[0].split(".")
                        ".".rjoin(mqn(0, mqn.size() - 2)) + ".*"}]
@@ -13,6 +14,7 @@ def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser
 def limitText                := <aui:data.limitText>
 def makePresentationContext  := <aui:present.makePresentationContext>
 def presentCommandRun        := <aui:present.presentCommandRun>
+def presentGeneric           := <aui:present.presentGenericReference>
 def makeDataFlavor           := <awt:datatransfer.makeDataFlavor>
 def makeBrand                := <elib:sealing.makeBrand>
 
@@ -25,7 +27,18 @@ def dumpComponents(c, out) {
   nest.close()
 }
 
-def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultPresentIcon, [=> makeFlexArgCommand, => CommandMessageDesc, => SimpleMessageCommand, => gatherCommands, => CompleteCommand] | _, stdout) {
+def makeSwingBackend(<unsafeAwt>, 
+                     <unsafeSwing>, 
+                     [=> defaultPresentGeneral, 
+                      #=> defaultPresentReferenceGeneral,
+                      => defaultPresentIcon], 
+                     [=> makeFlexArgCommand, 
+                      => CommandMessageDesc,
+                      => SimpleMessageCommand,
+                      => gatherCommands,
+                      => CompleteCommand
+                     ] | _,
+                     stdout) {
   def backend
   def action := <aui:swing.action>
   def awtDropTarget := <unsafeAwt:dnd.makeDropTarget>
@@ -33,6 +46,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   def makeColor := <awt:makeColor>
   def makeJFrame := <unsafeSwing:makeJFrame>
   def makeJLabel := <swing:makeJLabel>
+  def makeJButton := <swing:makeJButton>
   def makeImageIcon := <swing:makeImageIcon>
   def makeObjectSelector := <aui:swing.makeObjectSelectorAuthor>(awtDropTarget)
   def swingConstants := <swing:makeSwingConstants>
@@ -190,6 +204,11 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
   
     /** XXX what does this name mean? */
     to plabel(name :String, optIconPresenter, context, object, getDoubleClickCommand) {
+v v v v v v v
+*************
+    
+      def iconContext := makePresentationContext(fn _,_,c {[c,[].asMap()]}, def _.get(_) {return defaultPresentIcon}, [].asSet(), false, [].asMap(), iconPresentKit)
+^ ^ ^ ^ ^ ^ ^
       def icon := if (optIconPresenter != null) {
         iconContext.subPresentType(object, optIconPresenter, false)
       } else { 
@@ -215,7 +234,7 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
     }
     
     to button(name :String, actionThunk) {
-      def component := <swing:makeJButton>(name)
+      def component := makeJButton(name)
       action(component, actionThunk)
       return component
     }
@@ -341,10 +360,49 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
       return container
     }
   }
+  
+  def [closedIcon, openIcon] := {
+    def renderer := <unsafeSwing:tree.DefaultTreeCellRenderer>()
+    [renderer.getClosedIcon(), renderer.getOpenIcon()]
+  }
+  def defaultPresentReferenceGeneral(object, context) {
+    def toggle := makeJButton(closedIcon)
+    def hole := JPanel``
+    def open
+    var currentAction := open
+    
+    def close() {
+      toggle.setIcon(closedIcon)
+      currentAction := open
+      hole.removeAll()
+      hole.revalidate()
+    }
+    bind open() {
+      toggle.setIcon(openIcon)
+      currentAction := close
+      hole."add(Component)"(defaultPresentGeneral(object, context))
+      hole.revalidate()
+    }
+    
+    action(toggle, fn { currentAction() })
+    
+    return JPanel`$toggle   ${presentGeneric(object, context)}
+                  $hole.X.Y >`
+  }
+  
+  def defaultPresenters := [
+    "view" => defaultPresentGeneral,
+    "incorporate" => defaultPresentGeneral,
+    "reference" => defaultPresentReferenceGeneral,
+  ]
 
+v v v v v v v
   def contextPrivateBox := contextPrivateSealer.seal(Ref.broken("no hooks in root context"))
 
   def rootContext := makePresentationContext(swingDelegate, defaultPresentGeneral, [].asSet(), true, presentKit, contextPrivateBox, contextPrivateBrand)
+*************
+  def rootContext := makePresentationContext(makeSwingBoundary, defaultPresenters, [].asSet(), true, Ref.broken("no hooks"), presentKit)
+^ ^ ^ ^ ^ ^ ^
 
   return bind backend {
     to getRootContext() { return rootContext }

@@ -5,22 +5,29 @@ pragma.syntax("0.9")
 
 def toKey                    := <elib:tables.makeTraversalKey>
 
-def makePresentationContext(::"delegate", present, seen, quoting, kit, privateBox, privateBrand) {
-  
+def makePresentationContext(::"delegate", presenters, seen, kind, kit, privateBox, privateBrand) {
   return def presentationContext {
     to __optSealedDispatch(brand) { return switch (brand) {
       match ==privateBrand { privateBox }
       match _ { null }
     }}
     
-    to quoting() { return quoting }
+    to kind() { return kind }
+    to quoting() { return (kind != "incorporate") }
     to kit() { return kit }
     
-    to subPresent(object, quoting) {
-      return presentationContext.subPresentType(object, present, quoting)
+    to subPresent(object, kind) {
+      return presentationContext.subPresentType(
+        object, 
+        presenters[
+          if (kind == false) { "incorporate" } else if (kind == true) { "reference" } else { kind }
+        ], 
+        kind)
     }
     
-    to subPresentType(object, type, quoting) {
+    to subPresentType(object, type, initKind) {
+      # XXX cleanup kind-vs-quoting
+      def kind := if (initKind == false) { "incorporate" } else if (initKind == true) { "reference" } else { initKind }
       def handleFailure(f) {
         return try { f() } catch problem { throw <- (problem); kit.failedPresent(object, problem) }
       }
@@ -30,14 +37,14 @@ def makePresentationContext(::"delegate", present, seen, quoting, kit, privateBo
       def subPrivateBox := ::"delegate".newContext(object, subC)
       bind subC := makePresentationContext(
         ::"delegate",
-        present,
+        presenters,
         seen.with(key),
-        quoting,
+        kind,
         kit,
         subPrivateBox,
         privateBrand)
       def c := ::"delegate".boundary(object, subC, if (seen.contains(key)) {
-        handleFailure(fn { present("CYCLE", subC) })
+        handleFailure(fn { presenters["incorporate"]("CYCLE", subC) })
       } else {
         handleFailure(fn { type(object, subC) })
       })

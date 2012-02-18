@@ -1,0 +1,41 @@
+# Copyright 2006 Kevin Reid, under the terms of the MIT X license
+# found at http://www.opensource.org/licenses/mit-license.html ................
+
+pragma.enable("easy-return")
+pragma.disable("explicit-result-guard")
+
+# XXX this occurs in two places
+def textLimit := 60
+
+def presentGenericReference(object, context) {
+  def quoted := context.quoting()
+
+  def computeText() {
+    def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
+    return if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
+  }
+
+  def label := context.kit().plabel(computeText(), null, context, object, thunk {thunk {[null,null]}})
+
+  def update() { label.setText(computeText()) }
+  
+  if (!Ref.isResolved(object)) {
+    Ref.whenResolved(object, def done(_) :void {
+      update()
+    })
+  }
+  update()
+
+  label.addMouseListener(def mouseOverUpdateListener {
+    to mouseEntered(event) :void {
+      try {
+        update()
+      } catch problem {
+        throw <- (problem) # reach tracelog
+      }
+    }
+    match _ {}
+  })
+  
+  return label
+}

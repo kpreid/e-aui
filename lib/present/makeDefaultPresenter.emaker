@@ -16,6 +16,7 @@ def messageDescForCommand    := <aui:command.messageDescForCommand>
 def FinalSlot                := <type:org.erights.e.elib.slot.FinalSlot>
 def JPanel__quasiParser      := <import:org.erights.ex.swing.JPanel__quasiParser>
 def Slot                     := <type:org.erights.e.elib.slot.Slot>
+def presentGeneric           := <aui:present.presentGenericReference>
 def presentCommandRun        := <aui:present.presentCommandRun>
 def presentEverReporter      := <aui:present.presentEverReporter>
 def presentFlexSet           := <aui:present.presentFlexSet>
@@ -29,43 +30,8 @@ def [=> Zero, => One, => Many,
      => zero, => one, => many,
      => ZOM, => ZO] := <aui:data.zeroOneMany>
 
-def textLimit := 60
-
-def presentGenericInSwing(object, context) {
-  def quoted := context.quoting()
-
-  def computeText() {
-    def t := if (quoted) {E.toQuote(object)} else {E.toString(object)}
-    return if (t.size() > textLimit) { t(0, textLimit - 3) + "..." } else {t}
-  }
-
-  def label := context.kit().plabel(computeText(), null, context, object, fn {fn {[null,null]}})
-
-  def update() { label.setText(computeText()) }
-  
-  if (!Ref.isResolved(object)) {
-    Ref.whenResolved(object, def done(_) :void {
-      update()
-    })
-  }
-  update()
-
-  label.addMouseListener(def mouseOverUpdateListener {
-    to mouseEntered(event) :void {
-      try {
-        update()
-      } catch problem {
-        throw <- (problem) # reach tracelog
-      }
-    }
-    match _ {}
-  })
-  
-  return label
-}
-
 def presentSwitching(promise, context, after) {
-  def placeholder := presentGenericInSwing(promise, context)
+  def placeholder := presentGeneric(promise, context)
 
   def hole := context.kit().x(placeholder)
   
@@ -91,6 +57,9 @@ def presentSwitching(promise, context, after) {
   
   return hole
 }
+
+# XXX this occurs in two places
+def textLimit := 60
 
 def presentTwine(object :Twine, context) {
   # XXX we need some sort of mechanism for indicating when not to truncate a string
@@ -400,7 +369,7 @@ def presentENode(node, context) {
       } else if (matchers =~ [plumber]) {
         return subp(plumber)
       } else {
-        presentGenericInSwing(Ref.broken("confused EScript"))
+        presentGeneric(Ref.broken("confused EScript"))
       }
     }
     to visitEMethod(_, docComment, verb, params, optResultGuard, body) {
@@ -414,7 +383,7 @@ def presentENode(node, context) {
                     ${JPanel``}.Y         ${block(subp(body))}.X.Y`
     }
     match _ {
-      return presentGenericInSwing(node, context)
+      return presentGeneric(node, context)
     }
   })
 }
@@ -474,7 +443,7 @@ def makeDefaultPresenter([=> SimpleMessageCommand,
         presentENode(n, context) }
   
       match _ { 
-        presentGenericInSwing(object, context) }
+        presentGeneric(object, context) }
     }
   }
 }

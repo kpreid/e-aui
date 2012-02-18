@@ -49,7 +49,14 @@ def presentDefault := <aui:present.makeDefaultPresenter>(auiCommon)
 if (currentVat.getRunnerKind() != "awt") {
   interp.waitAtTop(currentVat.morphInto("awt"))
 }
-def backend := <aui:swing.makeSwingBackend>(<awt>, <swing>, presentDefault, <aui:present.makeDefaultIconPresenter>(), auiCommon, stdout)
+def backend := <aui:swing.makeSwingBackend>(
+  <awt>, <swing>, 
+  [ "defaultPresentGeneral" => presentDefault, 
+    "defaultPresentIcon" => <aui:present.makeDefaultIconPresenter>(),
+    #"defaultPresentReferenceGeneral" => <aui:present.makeDefaultIconPresenter>(),
+  ],
+  auiCommon, 
+  stdout)
 
 def rootsFlex := [].asMap().diverge()
 
@@ -231,7 +238,7 @@ def presentSeqEval(seqEval, context) {
       JPanel`${context.kit().text("? ")} ${context.subPresent(expr, false)} ${JPanel``}.X.Y
              ${JPanel``}.Y             V                                             V
       `, box.getComponentCount() - 1)
-    box."add(Component, int)"(context.subPresent(seqEval <- (expr), true), box.getComponentCount() - 1)
+    box."add(Component, int)"(context.subPresent(seqEval <- (expr), "view"), box.getComponentCount() - 1)
     box.revalidate()
   }))
 
@@ -269,6 +276,12 @@ def makeClock(timer, resolution) {
 # XXX needs a time-value type
 rootsFlex["Clock"] := fn { 
   [makeClock(timer, 1000), null]
+}
+
+# ------------------------------------------------------------------------------
+
+{ def frame := backend.openFrame("Test", backend.getRootContext().subPresent([1, 2, "3"].asSet().diverge(), false), null) 
+  frame.setLocation(50, 50)
 }
 
 # ------------------------------------------------------------------------------
