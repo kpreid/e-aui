@@ -226,6 +226,17 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
         return component
       }
 
+      to checkbox(name :nullOk[String], initial :nullOk[boolean], changeThunk) {
+        # XXX review this protocol
+        # XXX todo: make a custom model which remains highlighted until the
+        # changeThunk has responded
+        def component := <swing:makeJCheckBox>."run(String)"(name)
+        component.setSelected(initial == true)
+        action(component, fn { changeThunk(component.isSelected()) })
+        def setter(v :boolean) { component.setSelected(v == true) }
+        return [component, setter]
+      }
+
       /** XXX this ought to not exist here */
       to getObjectSelectorPresenter() { return makeObjectSelector }
 
@@ -262,6 +273,14 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
         })
         return field
       }
+    
+      # XXX the context ought to be implicit rather than passed
+      # XXX Swing-specific
+      /** XXX this protocol is inadequate. */
+      to _swingDocumentTextField(document, context) {
+        def component := <swing:makeJTextField>(document, null, 0)
+        return component
+      }
 
       #match [dn ? via (["x" => 0, "y" => 1].fetch) dir, components]
       match [dn ? (["x" => 0, "y" => 1] =~ [(dn) => dir]|_), components] {
@@ -272,6 +291,8 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
         box
       }
     }
+    
+    match msg { throw(`$presentKit does not understand $msg`) } # XXX workaround for E 0.8.37 bug
   }
 
   def normalBorder := borderFactory.createEmptyBorder(2, 2, 2, 2)

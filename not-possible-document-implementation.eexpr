@@ -1,0 +1,123 @@
+def Document := <type:javax.swing.text.Document>
+def Element := <type:javax.swing.text.Element>
+def Segment := <type:javax.swing.text.Segment>
+def AttributeSet := <type:javax.swing.text.AttributeSet>
+def DocumentEvent := <type:javax.swing.event.DocumentEvent>
+def DocumentListener := <type:javax.swing.event.DocumentListener>
+def UndoableEditListener := <type:javax.swing.event.UndoableEditListener>
+def INSERT := DocumentEvent.???().getINSERT()
+def REMOVE := DocumentEvent.???().getREMOVE()
+
+def every(coll) {
+  def sub {
+    match msg {
+      for obj in coll {
+        E.callWithPair(obj, msg)
+      }
+    }
+  }
+}
+
+def makeLamportProxyDocument(var slot) {
+  var current :Twine := slot.getValue()
+  var generation := 0
+  
+  def document
+  
+  def soleRoot implements Element {
+    
+  }
+  
+  def register() {
+    slot <- whenUpdated(def reactor {
+      to reactToUpdate(value, nextGen, nextReporter) {
+        if (nextReporter != null) {
+          slot := nextReporter
+        }
+
+        if ((documentLs.size() + undoableEditLs.size()) > 0) {
+          # If we have listeners, then this constitutes local interest
+          register <- ()
+        }
+
+        generation := nextGen
+        def previous := current
+
+        current := ""
+        every(documentLs).removeUpdate(def removeEvent implements DocumentEvent {
+          to getChange(==soleRoot) { return def change {
+            to getChildrenAdded() { return [] }
+            to getChildrenRemoved() { return soleRoot }
+            to getIndex() { return 0 }
+            
+          }}
+          to getDocument() { return document }
+          to getLength() { return previous.size() }
+          to getOffset() { return 0 }
+          to getType() { return REMOVE }
+        })
+
+        current := value
+        every(documentLs).insertUpdate(def insertEvent implements DocumentEvent {
+          to getChange(==soleRoot) { return def change {
+            to getChildrenAdded() { return [] }
+            to getChildrenRemoved() { return soleRoot }
+            to getIndex() { return 0 }
+            
+          }}
+          to getDocument() { return document }
+          to getLength() { return current.size() }
+          to getOffset() { return 0 }
+          to getType() { return REMOVE }
+        })
+      }
+    }, generation)
+  }
+  
+  def documentLs := [].asSet().diverge(DocumentListener)
+  def undoableEditLs := [].asSet().diverge(UndoableEditListener)
+  
+  bind document implements Document {
+    to addDocumentListener(new :DocumentListener) :void {
+      documentLs.addElement(new)
+    }
+    to addUndoableEditListener(new :UndoableEditListener) :void {
+      undoableEditLs.addElement(new)
+    }
+    #to createPosition(:int32) :nullOk[Position] {}
+    to getDefaultRootElement() :Element { return soleRoot }
+    #to getEndPosition() :nullOk[Position] {}
+    to getLength() :int { return current.size() }
+    #to getProperty(key :any) :any {}
+    to getRootElements() :List[Element] { return [soleRoot] }
+    #to getStartPosition() :nullOk[Position] {}
+    to getText(offset :int, length :int) :String {
+      return current.run(offset, offset + length)
+    }
+    to getText(offset :(int > 0), length :(int > 0), out :Segment) :void {
+      def d := <swing:text.DefaultStyledDocument>
+      d.insertString(0, document.getText(offset, length), null)
+      d.getText(0, length, out)
+    }
+    to insertString(offset :(int > 0), string :String, attrs :nullOk[AttributeSet]) :void {
+      def result := current.replace(offset, offset, string, 0, string.size())
+      current := result
+      slot.setValue(result)
+    }
+    #to putProperty(key, value) :void {}
+    to remove(offset :(int > 0), length :(int > 0)) :void {
+      def result := current.replace(offset, offset, [], 0, 0)
+      current := result
+      slot.setValue(result)
+    }
+    to removeDocumentListener(old :DocumentListener) :void {
+      documentLs.remove(old)
+    }
+    to removeUndoableEditListener(old :UndoableEditListener) :void {
+      undoableEditLs.remove(old)
+    }
+    
+  }
+  
+  return document
+}

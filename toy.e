@@ -7,6 +7,7 @@ pragma.enable("accumulator")
 def <aui> := <import:org.cubik.cle.aui.*>
 
 def makeLamportSlot := <import:org.erights.e.elib.slot.makeLamportSlot>
+def whenever        := <import:org.erights.e.elib.slot.whenever>
 
 def Command                  := <aui:command.Command>
 def gatherCommands
@@ -269,6 +270,142 @@ def makeClock(timer, resolution) {
 # XXX needs a time-value type
 rootsFlex["Clock"] := fn { 
   [makeClock(timer, 1000), null]
+}
+
+# ------------------------------------------------------------------------------
+
+def presentListP { to get(subp) {
+  return def presentListQ(list, context) {
+    def box := E.call(context.kit(), "y", accum [] for item in list { _.with(context.subPresentType(item, subp, context.quoting())) })
+    return box
+  }
+}}
+
+def presentSwingDocument(document, context) {
+  ## XXX make JTextPane for styled document
+  #return <swing:makeJTextArea>(document)
+  
+  return context.kit()._swingDocumentTextField(document, context)
+}
+
+def makeDefaultStyledDocument := <swing:text.makeDefaultStyledDocument>
+
+def makeLamportProxyDocument(var slot) {
+  def document := makeDefaultStyledDocument()
+  document.insertString(0, slot.getValue(), null)
+  var generation := 0
+  var inhibitUpstream := false
+  
+  #var registerer := fn {}
+  #
+  #def dls := [].asSet().diverge()
+  #def els := [].asSet().diverge()
+  #def interestNoticingWrapper extends document { # implements Document
+  #  to addDocumentListener(new) {
+  #    dls.addElement(new)
+  #    super.addDocumentListener(new)
+  #    registerer <- ()
+  #  }
+  #  to addUndoableEditListener(new) {
+  #    els.addElement(new)
+  #    super.addUndoableEditListener(new)
+  #    registerer <- ()
+  #  }
+  #  to removeDocumentListener(old) {
+  #    dls.remove(old)
+  #    super.removeDocumentListener(old)
+  #  }
+  #  to removeUndoableEditListener(old) {
+  #    els.remove(old)
+  #    super.removeUndoableEditListener(old)
+  #  }
+  #}
+  
+  def register() {
+    #registerer := fn {}
+    slot <- whenUpdated(def reactor {
+      to reactToUpdate(value, nextGen, nextReporter) {
+        # XXX doing this with a lamport slot results in losing the writability
+        #if (nextReporter != null) {
+        #  slot := nextReporter
+        #}
+
+        generation := nextGen
+        
+        if (document.getText(0, document.getLength()) != value) {
+          try {
+            inhibitUpstream := true
+            document.remove(0, document.getLength())
+            document.insertString(0, value, null)
+          } finally {
+            inhibitUpstream := false
+          }
+        }
+        
+        #if ((dls.size() + els.size()).aboveZero()) {
+          register()
+        #} else {
+        #  registerer := register
+        #}
+      }
+    }, generation)
+  }
+  
+  register()
+  
+  document.addDocumentListener(def listener {
+    match msg {
+      if (!inhibitUpstream) {
+        slot <- setValue(document.getText(0, document.getLength()))
+      }
+    }
+  })
+  
+  #return interestNoticingWrapper
+  return document
+}
+
+def presentSlotEditable(slot, context) {
+  return switch (def type := slot.valueType()) {
+    match ==String { # XXX == is too strict...?
+      #presentSwingDocument(makeLamportProxyDocument(slot), context)
+      XXX the following code to be edited into shape
+      def [checkbox, setter] := context.kit().checkbox(
+        null, 
+        if (Ref.isNear(slot)) { slot.getValue() },
+        fn x { slot <- setValue(x) })
+      
+      whenever([slot], fn {
+        setter <- (slot.getValue())
+      }, fn { true })
+      
+      checkbox
+    }
+    match ==boolean { # XXX == is too strict...?
+      # providing a model adapter seems harder than this state management
+      def [checkbox, setter] := context.kit().checkbox(
+        null, 
+        if (Ref.isNear(slot)) { slot.getValue() },
+        fn x { slot <- setValue(x) })
+      
+      whenever([slot], fn {
+        setter <- (slot.getValue())
+      }, fn { true })
+      
+      checkbox
+    }
+    match _ {
+      # XXX should be just present as default
+      throw(`Can't handle value type $type`)
+    }
+  }
+}
+
+rootsFlex["Immutable Editing Test"] := thunk {
+  def a := <aui:data.makeTypedReporterSlot>(makeLamportSlot("hello"), String)
+  def b := <aui:data.makeTypedReporterSlot>(makeLamportSlot(true), boolean)
+
+  [[a, a, b, b], presentListP[presentSlotEditable]]
 }
 
 # ------------------------------------------------------------------------------
