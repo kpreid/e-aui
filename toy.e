@@ -273,6 +273,32 @@ rootsFlex["Clock"] := fn {
 
 # ------------------------------------------------------------------------------
 
+def makeFlexBehavior := <aui:data.makeFlexBehavior>
+
+def presentCommonState(state, context) {
+  return ...
+}
+
+def presentBehavior(behavior, context) {
+  return JPanel`${context.kit().text("Behavior")}
+                ${context.subPresentType(behavior.state().domain(), presentCommonState, false)}
+                ${context.subPresentType(behavior."methods"(), <aui:present.presentFlexSet>, false)}`
+  # XXX methods needs to be not snapshot
+}
+
+def presentFBIC(controller, context) {
+  # XXX need to show state updates
+  return JPanel`${context.subPresent(controller.getObject(), true)}
+                ${context.subPresent(controller.getState(), true)}
+                ${context.subPresentType(controller.getBehavior(), presentBehavior, true)}`
+}
+
+rootsFlex["flexBehavior"] := thunk {
+  [makeFlexBehavior(e`def "succ"(x) :any { return x + 1 }`)(), presentFBIC]
+}
+
+# ------------------------------------------------------------------------------
+
 rootsFlex["Updating FlexSet"] := fn {
   def makeUpdatingFlexSet := <aui:data.makeUpdatingFlexSet>
   
