@@ -284,6 +284,62 @@ rootsFlex["Updating FlexSet"] := fn {
 
 # ------------------------------------------------------------------------------
 
+def VK_ENTER := <awt:event.KeyEvent>.getVK_ENTER()
+def action := <aui:swing.action>
+
+def presentSwingDocument(document, context) {
+  ## XXX make JTextPane for styled document
+  #return <swing:makeJTextArea>(document)
+  
+  return context.kit()._swingDocumentTextField(document, context)
+}
+
+def presentListP { to get(subp) { 
+  return def presentListQ(list, context) {
+    def box := E.call(context.kit(), "y", accum [] for item in list { _.with(context.subPresentType(item, subp, context.quoting())) })
+    return box
+  }
+}}
+
+def presentSlotEditable(slot, context) {
+  # XXX only strings for now
+  
+  def document := <swing:text.makePlainDocument>()
+  #document.replace(0, document.getLength(), slot.getValue(), null)
+  document.insertString(0, slot.getValue(), null)
+  
+  # XXX handle updates
+  
+  def outer := JPanel`${}`
+  outer.addKeyListener(def keyListener {
+    match [=="keyTyped", event ? (event.getKeyCode() == VK_ENTER)] {
+      try {
+        event.consume()
+        println("got ENTER")
+      } catch p { throw <- (p) }
+      null
+    }
+    match msg {
+      println(`got key event $msg`)
+    }
+  })
+  
+  def context2 := context.with
+  
+  return presentSwingDocument(document, context)
+}
+
+rootsFlex["Immutable Editing Tests"] := thunk {
+  def collection := <aui:data.makeTypedReporterSlot>(makeLamportSlot("hello"), String)
+  
+  [[collection, collection], presentListP[presentSlotEditable]]
+  
+  #def testMutableForm := <swing:text.makePlainDocument>()
+  #[[testMutableForm, testMutableForm], presentListP[presentSwingDocument]]
+}
+
+# ------------------------------------------------------------------------------
+
 rootsFlex["Things"] := fn {
   def exampleButtonCommand := makeArglessMessageCommand(def tk := <awt:makeToolkit>.getDefaultToolkit(), tk.__getAllegedType().getMessageTypes()["beep/0"])
 

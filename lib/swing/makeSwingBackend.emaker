@@ -248,7 +248,18 @@ def makeSwingBackend(<unsafeAwt>, <unsafeSwing>, defaultPresentGeneral, defaultP
       to text(s :String) {
         return makeJLabel(s)
       }
-
+    
+    # XXX the context ought to be implicit rather than passed
+    # XXX Swing-specific
+    /** XXX this protocol is inadequate. */
+    to _swingDocumentTextField(document, context) {
+      def component := <swing:makeJTextField>(document, null, 0)
+      action(component, fn {
+        getCommanderUnsealer.amplify(context)....
+      })
+      return component
+    }
+    
       to _textLineCommandField(handler) {
         def field := makeJTextField()
         field.addKeyListener(def enterKeyListener {
